@@ -69,14 +69,16 @@ class SW {
             return wispServerVal;
         };
         const bareServer = (): string => {
-            return (location.protocol === "https:" ? "https://" : "http://") + location.host + "/bare/";
+            return (
+                (location.protocol === "https:" ? "https://" : "http://") + location.host + "/bare/"
+            );
         };
         if (get) return this.#storageManager.getVal("transport");
         this.#storageManager.setVal(
             "transport",
             transport || this.#storageManager.getVal("transport") || "epoxy"
         );
-        
+
         if (routingMode === "bare") {
             // Use bare server transport
             await this.#baremuxConn!.setTransport("/baremod/index.mjs", [bareServer()]);
@@ -84,7 +86,9 @@ class SW {
             // Use wisp server transport (default)
             switch (transport) {
                 case "epoxy": {
-                    await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [{ wisp: wispServer() }]);
+                    await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [
+                        { wisp: wispServer() }
+                    ]);
                     break;
                 }
                 case "libcurl": {
@@ -94,7 +98,9 @@ class SW {
                     break;
                 }
                 default: {
-                    await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [{ wisp: wispServer() }]);
+                    await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [
+                        { wisp: wispServer() }
+                    ]);
                     break;
                 }
             }
