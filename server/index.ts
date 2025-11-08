@@ -9,21 +9,30 @@ import fastifyMiddie from "@fastify/middie";
 import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "node:url";
 import { server as wisp } from "@mercuryworkshop/wisp-js/server";
+import { createBareServer } from "@tomphttp/bare-server-node";
 
 //@ts-ignore this is created at runtime. No types associated w/it
 import { handler as astroHandler } from "../dist/server/entry.mjs";
 import { createServer } from "node:http";
 import { Socket } from "node:net";
 
+const bareServer = createBareServer("/bare/");
+
 const serverFactory: FastifyServerFactory = (
     handler: FastifyServerFactoryHandler
 ): RawServerDefault => {
     return createServer()
         .on("request", (req, res) => {
-            handler(req, res);
+            if (bareServer.shouldRoute(req)) {
+                bareServer.routeRequest(req, res);
+            } else {
+                handler(req, res);
+            }
         })
         .on("upgrade", (req, socket, head) => {
-            if (req.url?.endsWith("/wisp/") || req.url?.endsWith("/adblock/")) {
+            if (bareServer.shouldRoute(req)) {
+                bareServer.routeUpgrade(req, socket as Socket, head);
+            } else if (req.url?.endsWith("/wisp/") || req.url?.endsWith("/adblock/")) {
                 console.log(req.url);
                 wisp.routeRequest(req, socket as Socket, head);
             }

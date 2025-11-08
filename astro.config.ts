@@ -12,6 +12,8 @@ import { scramjetPath } from "@mercuryworkshop/scramjet/path";
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
 import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
+//@ts-expect-error No types
+import { bareModulePath } from "@mercuryworkshop/bare-as-module3";
 
 const viteWispServer = (): Plugin => {
     return {
@@ -55,6 +57,11 @@ export default defineConfig({
                     {
                         src: `${libcurlPath}/**/*`.replace(/\\/g, "/"),
                         dest: "libcurl",
+                        overwrite: false
+                    },
+                    {
+                        src: `${bareModulePath}/**/*`.replace(/\\/g, "/"),
+                        dest: "baremod",
                         overwrite: false
                     }
                 ]

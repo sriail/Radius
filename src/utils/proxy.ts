@@ -60,6 +60,7 @@ class SW {
 
     async setTransport(transport?: "epoxy" | "libcurl", get?: boolean) {
         console.log("Setting transport");
+        const routingMode = this.#storageManager.getVal("routingMode") || "wisp";
         const wispServer = (): string => {
             const wispServerVal = this.#storageManager.getVal("wispServer");
             if (this.#storageManager.getVal("adBlock") === "true") {
@@ -67,24 +68,45 @@ class SW {
             }
             return wispServerVal;
         };
+        const bareServer = (): string => {
+            return (location.protocol === "https:" ? "https://" : "http://") + location.host + "/bare/";
+        };
         if (get) return this.#storageManager.getVal("transport");
         this.#storageManager.setVal(
             "transport",
             transport || this.#storageManager.getVal("transport") || "epoxy"
         );
-        switch (transport) {
-            case "epoxy": {
-                await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [{ wisp: wispServer() }]);
-            }
-            case "libcurl": {
-                await this.#baremuxConn!.setTransport("/libcurl/index.mjs", [
-                    { wisp: wispServer() }
-                ]);
-            }
-            default: {
-                await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [{ wisp: wispServer() }]);
+        
+        if (routingMode === "bare") {
+            // Use bare server transport
+            await this.#baremuxConn!.setTransport("/baremod/index.mjs", [bareServer()]);
+        } else {
+            // Use wisp server transport (default)
+            switch (transport) {
+                case "epoxy": {
+                    await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [{ wisp: wispServer() }]);
+                    break;
+                }
+                case "libcurl": {
+                    await this.#baremuxConn!.setTransport("/libcurl/index.mjs", [
+                        { wisp: wispServer() }
+                    ]);
+                    break;
+                }
+                default: {
+                    await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [{ wisp: wispServer() }]);
+                    break;
+                }
             }
         }
+    }
+
+    async routingMode(mode?: "wisp" | "bare", set?: true) {
+        this.#storageManager.setVal(
+            "routingMode",
+            mode || this.#storageManager.getVal("routingMode") || "wisp"
+        );
+        if (set) await this.setTransport();
     }
 
     async wispServer(wispServer?: string, set?: true) {
