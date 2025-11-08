@@ -150,8 +150,60 @@ All platforms support the following environment variable:
 - **Heroku, Replit, CodeSandbox, Render, Railway**: Full support for WebSocket connections and all proxy features
 - **Vercel, Netlify**: Limited WebSocket support; some proxy features may not work as expected. These platforms work best for static content and serverless functions but may have limitations with the proxy backend.
 
+## Don't Want To Deploy But The Link Is Inexcessable?
+Don't Wory. add this html script into any basic Website builder
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radius</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /*
+        Custom CSS to ensure the HTML and IFRAME take up the entire viewport
+        and remove default margin/scrolling.
+        */
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', sans-serif;
+        }
+
+        iframe {
+            border: none;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <!--
+    The IFRAME is set to fill the entire viewport.
+    The sandbox attribute is loaded with all possible allowed tokens for maxamum functionality
+    -->
+    <iframe
+        id="fullPageFrame"
+        src="https://example.com"
+        title="Sandboxed Content"
+        allow="fullscreen"
+        sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-top-navigation allow-top-navigation-by-user-activation"
+    >
+        Your browser does not support iframes, please swich to a supported browser. You can find supported browsers at https://caniuse.com/?search=iframe or go to https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe for more information.
+    </iframe>
+    <!--
+    For a custom deployment, enter your URL.
+    -->
+</body>
+</html>
+```
+
 # Credits
 [Owski](https://github.com/unretain) - Owner <br>
 [proudparrot2](https://github.com/proudparrot2) - Founder and original dev <br>
 [MotorTruck1221](https://github.com/motortruck1221) - Astro rewrite and lead dev <br>
 [All of the contributors!](https://github.com/RadiusProxy/Radius/graphs/contributors)
+
