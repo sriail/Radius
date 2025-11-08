@@ -1,6 +1,6 @@
 import { defineConfig } from "astro/config";
 import type { Plugin } from "vite";
-import wisp from "wisp-server-node";
+import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 import node from "@astrojs/node";
 import tailwindcss from "@tailwindcss/vite";
 import icon from "astro-icon";
@@ -18,7 +18,9 @@ const viteWispServer = (): Plugin => {
         name: "vite-wisp-server",
         configureServer(server) {
             server.httpServer?.on("upgrade", (req, socket, head) => {
-                req.url.startsWith("/wisp") || req.url.startsWith("/adblock") ? wisp.routeRequest(req, socket, head) : undefined;
+                req.url.startsWith("/wisp") || req.url.startsWith("/adblock")
+                    ? wisp.routeRequest(req, socket, head)
+                    : undefined;
             });
         }
     };

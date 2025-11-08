@@ -25,7 +25,7 @@ If you can't donate, tell your friends about Radius!
 [TailwindCSS](https://tailwindcss.com) - CSS framework <br>
 [Ultraviolet](https://github.com/titaniumnetwork-dev/Ultraviolet) - Web proxy <br>
 [Scramjet](https://github.com/MercuryWorkshop/Scramjet) - Web proxy <br>
-[wisp-server-node](https://github.com/MercuryWorkshop/wisp-server-node) - Wisp server in Node.js <br>
+[@mercuryworkshop/wisp-js](https://github.com/MercuryWorkshop/wisp-js) - Wisp server and client in JavaScript <br>
 [bare-mux](https://github.com/MercuryWorkshop/bare-mux) - Modular implementation of the Bare client interface <br>
 [EpoxyTransport](https://github.com/MercuryWorkshop/EpoxyTransport) Bare-mux transport using epoxy-tls <br>
 [CurlTransport](https://github.com/MercuryWorkshop/CurlTransport) Bare-mux transport using libcurl.js <br>

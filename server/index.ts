@@ -8,7 +8,7 @@ import Fastify, {
 import fastifyMiddie from "@fastify/middie";
 import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "node:url";
-import wisp from "wisp-server-node";
+import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 
 //@ts-ignore this is created at runtime. No types associated w/it
 import { handler as astroHandler } from "../dist/server/entry.mjs";
@@ -46,7 +46,7 @@ await app.register(fastifyMiddie);
 await app.use(astroHandler);
 
 app.setNotFoundHandler((req, res) => {
-    res.redirect('/404'); // This is hacky as hell
+    res.redirect("/404"); // This is hacky as hell
 });
 
 const port = parseInt(process.env.PORT as string) || parseInt("8080");
