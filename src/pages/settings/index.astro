@@ -21,6 +21,15 @@ Object.keys(SearchEngines).forEach((k) =>
             } />
         </div>
         <div class="mt-2">
+            <p> Routing Mode </p>
+            <Dropdown id="rSwitcher" options={
+                [
+                    { name: 'Wisp Server', value: 'wisp', default: true },
+                    { name: 'Bare Server', value: 'bare' }
+                ]
+            } />
+        </div>
+        <div class="mt-2" id="transportSection">
             <p> Transport </p>
             <Dropdown id="tSwitcher" options={
                 [
@@ -33,7 +42,7 @@ Object.keys(SearchEngines).forEach((k) =>
             <p> Search Engine </p>
             <Dropdown id="sSwitcher" options={SearchEngineOptions} />
         </div>
-        <div class="mt-2 w-80">
+        <div class="mt-2 w-80" id="wispServerSection">
             <div>
                 <p> Wisp Server </p>
                 <Input id="wispServerSwitcher" placeholder="Wisp server URL (EX: wss://radiusproxy.app/wisp/" />
@@ -67,6 +76,31 @@ Object.keys(SearchEngines).forEach((k) =>
         settings: Settings,
         sw: SW,
         storageManager: StoreManager<"radius||settings">
+    }
+
+    const routingMode = async (opts: Options) => {
+        const routingEl = document.getElementById("dropdownBox-rSwitcher") as HTMLSelectElement;
+        const transportSection = document.getElementById("transportSection") as HTMLDivElement;
+        const wispServerSection = document.getElementById("wispServerSection") as HTMLDivElement;
+        
+        routingEl.value = opts.storageManager.getVal("routingMode") || "wisp";
+        
+        const updateVisibility = (mode: string) => {
+            if (mode === "bare") {
+                transportSection.classList.add("hidden");
+                wispServerSection.classList.add("hidden");
+            } else {
+                transportSection.classList.remove("hidden");
+                wispServerSection.classList.remove("hidden");
+            }
+        };
+        
+        updateVisibility(routingEl.value);
+        
+        routingEl.addEventListener("change", async () => {
+            await opts.sw.routingMode(routingEl.value as "wisp" | "bare", true);
+            updateVisibility(routingEl.value);
+        });
     }
 
     const transport = async (opts: Options) => {
@@ -169,6 +203,7 @@ Object.keys(SearchEngines).forEach((k) =>
             const settings = await Settings.getInstance();
             const sw = SW.getInstance().next().value!; 
             const storageManager = new StoreManager<"radius||settings">("radius||settings");
+            await routingMode({settings, sw, storageManager});
             await transport({settings, sw, storageManager});
             await proxy({settings, sw, storageManager});
             await searchEngine({settings, sw, storageManager});
