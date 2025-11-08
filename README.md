@@ -41,7 +41,13 @@ Radius will run on port 8080 by default, or 4321 for a dev environment (`pnpm de
 
 # Deployment
 
-Radius can be easily deployed to various platforms with full backend functionality:
+Radius can be easily deployed to various platforms with full backend functionality. 
+
+**📖 For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md)**
+
+## Quick Deploy
+
+Choose your preferred platform:
 
 ## Deploy to Vercel
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/RadiusProxy/Radius)
