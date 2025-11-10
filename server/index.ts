@@ -23,17 +23,22 @@ const serverFactory: FastifyServerFactory = (
 ): RawServerDefault => {
     return createServer()
         .on("request", (req, res) => {
-            if (bareServer.shouldRoute(req)) {
+            // Ensure bare server handles all /bare/ requests
+            if (req.url && req.url.startsWith("/bare/")) {
+                bareServer.routeRequest(req, res);
+            } else if (bareServer.shouldRoute(req)) {
                 bareServer.routeRequest(req, res);
             } else {
                 handler(req, res);
             }
         })
         .on("upgrade", (req, socket, head) => {
-            if (bareServer.shouldRoute(req)) {
+            // Ensure bare server handles all /bare/ upgrade requests  
+            if (req.url && req.url.startsWith("/bare/")) {
+                bareServer.routeUpgrade(req, socket as Socket, head);
+            } else if (bareServer.shouldRoute(req)) {
                 bareServer.routeUpgrade(req, socket as Socket, head);
             } else if (req.url?.endsWith("/wisp/") || req.url?.endsWith("/adblock/")) {
-                console.log(req.url);
                 wisp.routeRequest(req, socket as Socket, head);
             }
         });
