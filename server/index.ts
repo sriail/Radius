@@ -24,14 +24,23 @@ const serverFactory: FastifyServerFactory = (
     return createServer()
         .on("request", (req, res) => {
             if (bareServer.shouldRoute(req)) {
-                bareServer.routeRequest(req, res);
+                bareServer.routeRequest(req, res).catch((err) => {
+                    console.error("Bare server error:", err);
+                    if (!res.headersSent) {
+                        res.writeHead(500, { "Content-Type": "application/json" });
+                        res.end(JSON.stringify({ error: "Internal server error" }));
+                    }
+                });
             } else {
                 handler(req, res);
             }
         })
         .on("upgrade", (req, socket, head) => {
             if (bareServer.shouldRoute(req)) {
-                bareServer.routeUpgrade(req, socket as Socket, head);
+                bareServer.routeUpgrade(req, socket as Socket, head).catch((err) => {
+                    console.error("Bare server upgrade error:", err);
+                    socket.end();
+                });
             } else if (req.url?.endsWith("/wisp/") || req.url?.endsWith("/adblock/")) {
                 console.log(req.url);
                 wisp.routeRequest(req, socket as Socket, head);
