@@ -18,14 +18,26 @@ import { handler as astroHandler } from "../dist/server/entry.mjs";
 import { createServer } from "node:http";
 import { Socket } from "node:net";
 
-// Disable keep-alive completely to fix "too many keepalive requests" error
+// Create agents that completely disable connection pooling
+const httpAgent = new http.Agent({
+    keepAlive: false,
+    maxSockets: Infinity,
+    maxFreeSockets: 0
+});
+
+const httpsAgent = new https.Agent({
+    keepAlive: false,
+    maxSockets: Infinity,
+    maxFreeSockets: 0
+});
+
+// Remove connection limiter entirely and disable keep-alive
 const bareServer = createBareServer("/bare/", {
-    httpAgent: new http.Agent({
-        keepAlive: false
-    }),
-    httpsAgent: new https.Agent({
-        keepAlive: false
-    })
+    httpAgent: httpAgent,
+    httpsAgent: httpsAgent,
+    // Remove or drastically increase connection limiter
+    // @ts-ignore
+    connectionLimiter: undefined
 });
 
 const serverFactory: FastifyServerFactory = (
@@ -33,7 +45,8 @@ const serverFactory: FastifyServerFactory = (
 ): RawServerDefault => {
     const server = createServer()
         .on("request", (req, res) => {
-            // Force Connection: close header
+            // Force close connections
+            res.shouldKeepAlive = false;
             res.setHeader('Connection', 'close');
             
             if (bareServer.shouldRoute(req)) {
@@ -49,11 +62,18 @@ const serverFactory: FastifyServerFactory = (
                 console.log(req.url);
                 wisp.routeRequest(req, socket as Socket, head);
             }
+        })
+        .on("connection", (socket) => {
+            // Disable keep-alive at the socket level
+            socket.setKeepAlive(false);
+            socket.setTimeout(30000); // 30 second timeout
         });
     
-    // Disable keep-alive on the server completely
+    // Completely disable keep-alive
     server.keepAliveTimeout = 0;
     server.headersTimeout = 1000;
+    server.requestTimeout = 0; // Disable request timeout
+    server.timeout = 0; // Disable server timeout
     
     return server;
 };
@@ -62,7 +82,9 @@ const app = Fastify({
     logger: false,
     ignoreDuplicateSlashes: true,
     ignoreTrailingSlash: true,
-    serverFactory: serverFactory
+    serverFactory: serverFactory,
+    connectionTimeout: 0,
+    keepAliveTimeout: 0
 });
 
 await app.register(fastifyStatic, {
