@@ -83,6 +83,8 @@ class Settings {
     cloak(location: string) {
         return {
             aboutBlank: () => {
+                // Store the cloaking mode so window.open can use it
+                this.#storageManager.setVal("cloakMode", "aboutBlank");
                 const win = window.open();
                 if (!win) return;
                 window.location.replace(location);
@@ -93,6 +95,8 @@ class Settings {
                 win.document.body.appendChild(iframe);
             },
             blob: () => {
+                // Store the cloaking mode so window.open can use it
+                this.#storageManager.setVal("cloakMode", "blob");
                 const win = window.open();
                 if (!win) return;
                 window.location.replace(location);
@@ -120,6 +124,14 @@ class Settings {
                 win.location.href = url;
             }
         };
+    }
+
+    getCloakMode(): string | null {
+        return this.#storageManager.getVal("cloakMode") || null;
+    }
+
+    clearCloakMode() {
+        this.#storageManager.removeVal("cloakMode");
     }
 
     adBlock(enabled?: boolean) {

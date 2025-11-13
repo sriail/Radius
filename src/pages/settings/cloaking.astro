@@ -5,24 +5,32 @@ import Button from "@components/ui/Button.astro";
 ---
 <SettingsLayout active="cloaking" title="Cloaking">
     <div class="w-full flex-grow">
-        <div class="w-full flex flex-row gap-4">
-            <div class="w-1/2">
-                <div>
-                    <p> About Blank </p>
-                    <Input id="aboutBlankCloaker" placeholder="Redirect url (EX: https://google.com)" />
+        <div class="w-full flex flex-col gap-6">
+            <div class="w-full flex flex-row gap-4">
+                <div class="w-1/2">
+                    <div>
+                        <p> About Blank </p>
+                        <Input id="aboutBlankCloaker" placeholder="Redirect url (EX: https://google.com)" />
+                    </div>
+                    <div class="mt-2">
+                        <Button id="aboutBlankLaunch" text="Cloak!" icon="lucide:square-arrow-out-up-right" />
+                    </div>
                 </div>
-                <div class="mt-2">
-                    <Button id="aboutBlankLaunch" text="Cloak!" icon="lucide:square-arrow-out-up-right" />
+                <div class="w-1/2">
+                    <div>
+                        <p> Blob </p>
+                        <Input id="blobCloaker" placeholder="Redirect url (EX: https://google.com)" />
+                    </div>
+                    <div class="mt-2">
+                        <Button id="blobLaunch" text="Cloak!" icon="lucide:square-arrow-out-up-right" />
+                    </div>
                 </div>
             </div>
-            <div class="w-1/2">
-                <div>
-                    <p> Blob </p>
-                    <Input id="blobCloaker" placeholder="Redirect url (EX: https://google.com)" />
-                </div>
-                <div class="mt-2">
-                    <Button id="blobLaunch" text="Cloak!" icon="lucide:square-arrow-out-up-right" />
-                </div>
+            <div class="w-full border-t border-t-(--border) pt-4">
+                <p class="text-sm text-(--muted-foreground) mb-2">
+                    Current cloak mode: <span id="currentCloakMode" class="font-semibold text-(--foreground)">None</span>
+                </p>
+                <Button id="clearCloak" text="Clear Cloak Mode" icon="lucide:x-circle" />
             </div>
         </div>
     </div>
@@ -31,6 +39,12 @@ import Button from "@components/ui/Button.astro";
     import { Settings } from "@utils/settings.ts";
     import { StoreManager } from "@utils/storage";
     import { SW } from "@utils/proxy.ts";
+
+    const updateCloakModeDisplay = (storage: StoreManager<"radius||settings">) => {
+        const display = document.getElementById("currentCloakMode") as HTMLSpanElement;
+        const mode = storage.getVal("cloakMode") || "none";
+        display.textContent = mode === "aboutBlank" ? "About Blank" : mode === "blob" ? "Blob" : "None";
+    };
 
     const handleAb = async (settings: Settings, sw: SW, storage: StoreManager<"radius||settings">) => {
         const input = document.getElementById("aboutBlankCloaker") as HTMLInputElement;
@@ -50,13 +64,24 @@ import Button from "@components/ui/Button.astro";
         });
     };
 
+    const handleClearCloak = async (settings: Settings, storage: StoreManager<"radius||settings">) => {
+        const button = document.getElementById("clearCloak") as HTMLButtonElement;
+        button.addEventListener("click", () => {
+            settings.clearCloakMode();
+            updateCloakModeDisplay(storage);
+            alert("Cloak mode cleared! New windows will open normally.");
+        });
+    };
+
     document.addEventListener('astro:page-load', async () => {
         const settings = await Settings.getInstance();
         const sw = SW.getInstance().next().value!;
         const storageManager = new StoreManager<"radius||settings">("radius||settings");
         try {
+            updateCloakModeDisplay(storageManager);
             await handleAb(settings, sw, storageManager);
             await handleBlob(settings, sw, storageManager);
+            await handleClearCloak(settings, storageManager);
         }
         catch (_) {}
     });
