@@ -15,13 +15,19 @@ import { createBareServer } from "@tomphttp/bare-server-node";
 import { handler as astroHandler } from "../dist/server/entry.mjs";
 import { createServer } from "node:http";
 import { Socket } from "node:net";
+import http from "node:http";
+import https from "node:https";
+
+// Configure global HTTP agent settings to limit connections per host
+http.globalAgent.maxSockets = 50;
+https.globalAgent.maxSockets = 50;
 
 const bareServer = createBareServer("/bare/");
 
 const serverFactory: FastifyServerFactory = (
     handler: FastifyServerFactoryHandler
 ): RawServerDefault => {
-    return createServer()
+    const server = createServer()
         .on("request", (req, res) => {
             if (bareServer.shouldRoute(req)) {
                 bareServer.routeRequest(req, res);
@@ -37,6 +43,13 @@ const serverFactory: FastifyServerFactory = (
                 wisp.routeRequest(req, socket as Socket, head);
             }
         });
+
+    // Configure keepalive settings to prevent "too many connections" errors
+    server.keepAliveTimeout = 5000; // 5 seconds
+    server.headersTimeout = 6000; // 6 seconds (should be greater than keepAliveTimeout)
+    server.maxHeadersCount = 100; // Limit headers count
+
+    return server;
 };
 
 const app = Fastify({
