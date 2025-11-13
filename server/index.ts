@@ -10,19 +10,40 @@ import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "node:url";
 import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 import { createBareServer } from "@tomphttp/bare-server-node";
+import http from "node:http";
+import https from "node:https";
 
 //@ts-ignore this is created at runtime. No types associated w/it
 import { handler as astroHandler } from "../dist/server/entry.mjs";
 import { createServer } from "node:http";
 import { Socket } from "node:net";
 
-const bareServer = createBareServer("/bare/");
+// Completely disable keep-alive and remove connection limiting
+const bareServer = createBareServer("/bare/", {
+    logErrors: false,
+    localAddress: undefined,
+    family: undefined,
+    maintainConnectionHeader: false,
+    httpAgent: new http.Agent({
+        keepAlive: false,
+        maxSockets: Infinity,
+        maxFreeSockets: 0,
+    }),
+    httpsAgent: new https.Agent({
+        keepAlive: false,
+        maxSockets: Infinity,
+        maxFreeSockets: 0,
+    }),
+});
 
 const serverFactory: FastifyServerFactory = (
     handler: FastifyServerFactoryHandler
 ): RawServerDefault => {
     return createServer()
         .on("request", (req, res) => {
+            // Force close connection after response
+            res.shouldKeepAlive = false;
+            
             if (bareServer.shouldRoute(req)) {
                 bareServer.routeRequest(req, res);
             } else {
@@ -36,6 +57,11 @@ const serverFactory: FastifyServerFactory = (
                 console.log(req.url);
                 wisp.routeRequest(req, socket as Socket, head);
             }
+        })
+        .on("connection", (socket) => {
+            // Disable TCP keep-alive
+            socket.setKeepAlive(false);
+            socket.setTimeout(60000);
         });
 };
 
