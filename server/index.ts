@@ -16,7 +16,13 @@ import { handler as astroHandler } from "../dist/server/entry.mjs";
 import { createServer } from "node:http";
 import { Socket } from "node:net";
 
-const bareServer = createBareServer("/bare/");
+const bareServer = createBareServer("/bare/", {
+    connectionLimiter: {
+        maxConnectionsPerIP: 100,
+        windowDuration: 60,
+        blockDuration: 30,
+    },
+});
 
 const serverFactory: FastifyServerFactory = (
     handler: FastifyServerFactoryHandler
