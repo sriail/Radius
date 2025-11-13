@@ -106,12 +106,22 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8080
+      # Optional: Bare server connection limiter settings
+      # - BARE_MAX_CONNECTIONS_PER_IP=100
+      # - BARE_WINDOW_DURATION=60
+      # - BARE_BLOCK_DURATION=30
     restart: unless-stopped
 ```
 
 ## Environment Variables
-All platforms support the following environment variable:
+All platforms support the following environment variables:
 - `PORT` - The port number to run the server on (default: 8080)
+
+### Bare Server Connection Limiter
+These variables control the rate limiting for the Bare server to prevent abuse while allowing normal browsing:
+- `BARE_MAX_CONNECTIONS_PER_IP` - Maximum number of concurrent keep-alive connections per IP address (default: 100)
+- `BARE_WINDOW_DURATION` - Time window in seconds for counting connections (default: 60)
+- `BARE_BLOCK_DURATION` - Duration in seconds to block an IP after exceeding the limit (default: 30)
 
 ## Platform Compatibility Notes
 - **Heroku, Replit, CodeSandbox, Render, Railway**: Full support for WebSocket connections and all proxy features
