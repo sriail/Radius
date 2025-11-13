@@ -17,10 +17,8 @@ const SearchEngines: Record<string, string> = {
     Brave: "https://search.brave.com/search?q=%s",
     DuckDuckGo: "https://duckduckgo.com/?q=%s",
     Google: "https://google.com/search?q=%s",
-    Swisscows: "https://swisscows.com/en/web?query=%s",
     Yahoo: "https://search.yahoo.com/search?p=%s",
     Yandex: "https://yandex.com/search/?text=%s",
-    Quant: "https://www.qwant.com/?q=%s"
 };
 
 export { type SettingsProps, type DropdownOptions, SearchEngines };
