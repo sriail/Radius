@@ -149,10 +149,10 @@ class SW {
         checkScripts().then(async () => {
             this.#baremuxConn = new BareMuxConnection("/erab/worker.js");
             await this.setTransport();
-            
+
             // Load the ScramjetController class from the factory function
             const { ScramjetController } = $scramjetLoadController();
-            
+
             this.#scramjetController = new ScramjetController({
                 prefix: "/~/scramjet/",
                 files: {

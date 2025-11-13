@@ -18,7 +18,7 @@ const SearchEngines: Record<string, string> = {
     DuckDuckGo: "https://duckduckgo.com/?q=%s",
     Google: "https://google.com/search?q=%s",
     Yahoo: "https://search.yahoo.com/search?p=%s",
-    Yandex: "https://yandex.com/search/?text=%s",
+    Yandex: "https://yandex.com/search/?text=%s"
 };
 
 export { type SettingsProps, type DropdownOptions, SearchEngines };
