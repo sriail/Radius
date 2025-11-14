@@ -50,7 +50,6 @@ Radius will run on port 8080 by default, or 4321 for a dev environment (`pnpm de
 
 And for (`npm`), run
 ```bash
-# Bare Server WILL NOT WORK due to npm run dev
 git clone https://github.com/RadiusProxy/Radius
 cd Radius
 npm install
@@ -187,6 +186,7 @@ Don't wory, add this html script into any basic Website builder, it uses QuickDe
 [proudparrot2](https://github.com/proudparrot2) - Founder and original dev <br>
 [MotorTruck1221](https://github.com/motortruck1221) - Astro rewrite and lead dev <br>
 [All of the contributors!](https://github.com/RadiusProxy/Radius/graphs/contributors)
+
 
 
 
