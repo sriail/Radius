@@ -18,19 +18,21 @@ import { Socket } from "node:net";
 
 const bareServer = createBareServer("/bare/", {
     connectionLimiter: {
-        // Allow more connections but with shorter window
-        maxConnectionsPerIP: parseInt(process.env.BARE_MAX_CONNECTIONS_PER_IP as string) || 500,
-        windowDuration: parseInt(process.env.BARE_WINDOW_DURATION as string) || 10, // Shorter window
-        blockDuration: parseInt(process.env.BARE_BLOCK_DURATION as string) || 5,  // Shorter block
+        // Optimized connection limits for better compatibility
+        maxConnectionsPerIP: parseInt(process.env.BARE_MAX_CONNECTIONS_PER_IP as string) || 1000,
+        windowDuration: parseInt(process.env.BARE_WINDOW_DURATION as string) || 30, // Extended window for stability
+        blockDuration: parseInt(process.env.BARE_BLOCK_DURATION as string) || 10, // Moderate block duration
         // Add custom validation function (if supported by bare-server-node)
         validateConnection: (req) => {
             // Whitelist keepalive requests
-            if (req.headers['connection']?.toLowerCase().includes('keep-alive')) {
+            if (req.headers["connection"]?.toLowerCase().includes("keep-alive")) {
                 return true; // Allow keepalive
             }
             return false; // Apply rate limit to others
         }
-    }
+    },
+    // Add error logging for debugging
+    logErrors: process.env.NODE_ENV !== "production"
 });
 
 const serverFactory: FastifyServerFactory = (
@@ -38,27 +40,52 @@ const serverFactory: FastifyServerFactory = (
 ): RawServerDefault => {
     return createServer()
         .on("request", (req, res) => {
-            if (bareServer.shouldRoute(req)) {
-                bareServer.routeRequest(req, res);
-            } else {
-                handler(req, res);
+            try {
+                if (bareServer.shouldRoute(req)) {
+                    bareServer.routeRequest(req, res);
+                } else {
+                    handler(req, res);
+                }
+            } catch (error) {
+                console.error("Request handling error:", error);
+                if (!res.headersSent) {
+                    res.writeHead(500, { "Content-Type": "text/plain" });
+                    res.end("Internal Server Error");
+                }
             }
         })
         .on("upgrade", (req, socket, head) => {
-            if (bareServer.shouldRoute(req)) {
-                bareServer.routeUpgrade(req, socket as Socket, head);
-            } else if (req.url?.endsWith("/wisp/") || req.url?.endsWith("/adblock/")) {
-                console.log(req.url);
-                wisp.routeRequest(req, socket as Socket, head);
+            try {
+                if (bareServer.shouldRoute(req)) {
+                    bareServer.routeUpgrade(req, socket as Socket, head);
+                } else if (req.url?.endsWith("/wisp/") || req.url?.endsWith("/adblock/")) {
+                    wisp.routeRequest(req, socket as Socket, head);
+                }
+            } catch (error) {
+                console.error("WebSocket upgrade error:", error);
+                socket.destroy();
             }
+        })
+        .on("error", (error) => {
+            console.error("Server error:", error);
         });
 };
 
 const app = Fastify({
-    logger: false,
+    logger:
+        process.env.NODE_ENV === "production"
+            ? false
+            : {
+                  level: "error"
+              },
     ignoreDuplicateSlashes: true,
     ignoreTrailingSlash: true,
-    serverFactory: serverFactory
+    serverFactory: serverFactory,
+    // Optimize for proxy performance
+    requestTimeout: 0, // No timeout for long-running proxy connections
+    keepAliveTimeout: 72000, // 72 seconds to maintain connections
+    connectionTimeout: 0, // No connection timeout
+    bodyLimit: 1048576 * 50 // 50MB body limit for large requests
 });
 
 await app.register(fastifyStatic, {

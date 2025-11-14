@@ -20,9 +20,14 @@ const viteWispServer = (): Plugin => {
         name: "vite-wisp-server",
         configureServer(server) {
             server.httpServer?.on("upgrade", (req, socket, head) => {
-                req.url.startsWith("/wisp") || req.url.startsWith("/adblock")
-                    ? wisp.routeRequest(req, socket, head)
-                    : undefined;
+                try {
+                    if (req.url.startsWith("/wisp") || req.url.startsWith("/adblock")) {
+                        wisp.routeRequest(req, socket, head);
+                    }
+                } catch (error) {
+                    console.error("WebSocket upgrade error in dev server:", error);
+                    socket.destroy();
+                }
             });
         }
     };
