@@ -11,6 +11,15 @@
 
 Radius is a simple and clean web proxy designed for speed and ease-of-use, made in Astro.
 
+## ✨ Key Features
+
+- **🚀 Optimized Performance**: Advanced caching and connection management for faster browsing
+- **🎮 Gaming-Ready**: Special optimizations for cloud gaming platforms like [now.gg](https://now.gg)
+- **🔧 Intelligent Routing**: Automatic site-specific configuration for maximum compatibility
+- **🛡️ Reliable**: Multi-level error handling and fallback mechanisms
+- **⚡ Dual Proxy Support**: Choose between Ultraviolet and Scramjet proxies
+- **🔌 Flexible Transports**: Epoxy (WebSocket-optimized) and LibCurl (high-performance) options
+
 Join the [Discord!](https://discord.gg/cCfytCX6Sv) (Or [TitaniumNetwork's](https://discord.gg/unblock))
 
 ## How to support Radius 
@@ -116,16 +125,43 @@ services:
 ## Environment Variables
 All platforms support the following environment variables:
 - `PORT` - The port number to run the server on (default: 8080)
+- `NODE_ENV` - Set to 'production' for production deployments (enables optimizations)
 
 ### Bare Server Connection Limiter
 These variables control the rate limiting for the Bare server to prevent abuse while allowing normal browsing:
-- `BARE_MAX_CONNECTIONS_PER_IP` - Maximum number of concurrent keep-alive connections per IP address (default: 100)
-- `BARE_WINDOW_DURATION` - Time window in seconds for counting connections (default: 60)
-- `BARE_BLOCK_DURATION` - Duration in seconds to block an IP after exceeding the limit (default: 30)
+- `BARE_MAX_CONNECTIONS_PER_IP` - Maximum number of concurrent keep-alive connections per IP address (default: 1000, optimized for high traffic)
+- `BARE_WINDOW_DURATION` - Time window in seconds for counting connections (default: 30, balanced for reliability)
+- `BARE_BLOCK_DURATION` - Duration in seconds to block an IP after exceeding the limit (default: 10, moderate blocking)
+
+> [!NOTE]
+> The default connection limits have been optimized for better compatibility with demanding sites like cloud gaming platforms and real-time applications.
 
 ## Platform Compatibility Notes
 - **Heroku, Replit, CodeSandbox, Render, Railway**: Full support for WebSocket connections and all proxy features
 - **Vercel, Netlify**: Limited WebSocket support; some proxy features may not work as expected. These platforms work best for static content and serverless functions but may have limitations with the proxy backend.
+
+## Advanced Features
+
+### 🎯 Site-Specific Optimizations
+Radius automatically detects and optimizes for challenging websites. Pre-configured optimizations for:
+- **Cloud Gaming**: now.gg, GeForce NOW
+- **Communication**: Discord
+- **Streaming**: YouTube, Twitch
+
+See [docs/SITE_OPTIMIZATIONS.md](docs/SITE_OPTIMIZATIONS.md) for more details.
+
+### 🚀 Performance Enhancements
+- **Intelligent Caching**: Service worker caching for static resources
+- **Enhanced Error Handling**: Multi-level retry and fallback mechanisms
+- **Optimized Connection Management**: Extended keep-alive and larger request limits
+- **WebSocket Pooling**: Better performance for real-time applications
+
+### 🔧 Proxy Configuration
+Access Settings → Proxy to configure:
+- **Proxy Type**: Ultraviolet or Scramjet
+- **Routing Mode**: Wisp Server (WebSocket) or Bare Server (HTTP)
+- **Transport**: Epoxy (WebSocket-optimized) or LibCurl (high-performance)
+- **Custom Wisp Server**: Use your own Wisp server endpoint
 
 ## Don't Want To Deploy But The Link Is Inexcessable?
 Don't Wory. add this html script into any basic Website builder
