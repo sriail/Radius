@@ -1,0 +1,324 @@
+---
+import SettingsLayout from "@layouts/SettingsLayout.astro";
+import Dropdown from "@components/ui/Dropdown.astro";
+import Button from "@components/ui/Button.astro";
+import { type DropdownOptions } from "@utils/types";
+
+const AutoSwitchPresets: DropdownOptions[] = [
+    { name: "Disabled", value: "disabled", default: true },
+    { name: "Gaming Sites (now.gg)", value: "gaming" },
+    { name: "Web/WASM Games", value: "webgames" },
+    { name: "Social Media", value: "social" },
+    { name: "Heavy Service Worker Sites", value: "heavysw" }
+];
+
+const LoadAssistOptions: DropdownOptions[] = [
+    { name: "Enabled", value: "enabled" },
+    { name: "Disabled", value: "disabled", default: true }
+];
+---
+<SettingsLayout active="experimental" title="Experimental">
+    <div class="w-full flex-grow">
+        <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4">
+            <p class="text-yellow-500 font-semibold">⚠️ Warning: Experimental Features</p>
+            <p class="text-sm mt-1">These features are experimental and may not work as expected. Use at your own risk.</p>
+        </div>
+        
+        <div class="mb-6">
+            <h2 class="text-2xl font-semibold mb-2">Automatic Switching</h2>
+            <p class="text-sm text-(--muted-foreground) mb-3">
+                Automatically applies preconfigured proxy settings optimized for different types of sites.
+            </p>
+            <div>
+                <p class="mb-2">Preset Configuration</p>
+                <Dropdown id="autoSwitchPreset" options={AutoSwitchPresets} />
+            </div>
+            <div class="mt-3 p-4 bg-(--accent) rounded-lg">
+                <p class="text-sm font-medium mb-2">Current Preset Info:</p>
+                <div id="presetInfo" class="text-sm text-(--muted-foreground)">
+                    Select a preset to see configuration details
+                </div>
+            </div>
+        </div>
+
+        <div class="border-t border-(--border) pt-6">
+            <h2 class="text-2xl font-semibold mb-2">Load Assist</h2>
+            <p class="text-sm text-(--muted-foreground) mb-3">
+                Monitors console for proxy failures and automatically switches to a different proxy configuration.
+            </p>
+            <div>
+                <p class="mb-2">Load Assist Status</p>
+                <Dropdown id="loadAssist" options={LoadAssistOptions} />
+            </div>
+            <div class="mt-3">
+                <div id="loadAssistStatus" class="hidden p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                    <p class="text-green-500 text-sm">✓ Load Assist is monitoring console</p>
+                </div>
+                <div id="loadAssistLogs" class="mt-3 p-4 bg-(--accent) rounded-lg max-h-40 overflow-y-auto hidden">
+                    <p class="text-sm font-medium mb-2">Recent Activity:</p>
+                    <div id="loadAssistLogContent" class="text-xs font-mono text-(--muted-foreground)">
+                        No activity yet
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-6 flex flex-row gap-4">
+            <Button id="saveExperimentalSettings" text="Save Settings" icon="lucide:save" />
+            <Button id="resetExperimentalSettings" text="Reset to Defaults" icon="lucide:rotate-ccw" />
+        </div>
+    </div>
+</SettingsLayout>
+
+<script>
+    import { Settings } from "@utils/settings.ts";
+    import { SW } from "@utils/proxy.ts";
+    import { StoreManager } from "@utils/storage";
+
+    // Preset configurations for automatic switching
+    const PRESET_CONFIGS = {
+        gaming: {
+            name: "Gaming Sites (now.gg)",
+            description: "Optimized for cloud gaming platforms like now.gg",
+            proxy: "sj" as const,
+            routingMode: "wisp" as const,
+            transport: "libcurl" as const
+        },
+        webgames: {
+            name: "Web/WASM Games",
+            description: "Optimized for WebAssembly and browser-based games",
+            proxy: "sj" as const,
+            routingMode: "wisp" as const,
+            transport: "epoxy" as const
+        },
+        social: {
+            name: "Social Media",
+            description: "Optimized for social media platforms",
+            proxy: "uv" as const,
+            routingMode: "wisp" as const,
+            transport: "libcurl" as const
+        },
+        heavysw: {
+            name: "Heavy Service Worker Sites",
+            description: "Optimized for sites with intensive service worker usage",
+            proxy: "sj" as const,
+            routingMode: "wisp" as const,
+            transport: "libcurl" as const
+        }
+    };
+
+    type PresetType = keyof typeof PRESET_CONFIGS;
+
+    let loadAssistEnabled = false;
+    let loadAssistAttempts = 0;
+    let originalConfig: { proxy: string; routingMode: string; transport: string } | null = null;
+
+    const applyPreset = async (preset: PresetType, sw: SW, settings: Settings, storage: StoreManager<"radius||settings">) => {
+        if (!PRESET_CONFIGS[preset]) return;
+
+        const config = PRESET_CONFIGS[preset];
+        
+        // Apply the preset configuration
+        settings.proxy(config.proxy);
+        await sw.routingMode(config.routingMode, true);
+        await sw.setTransport(config.transport, false);
+        
+        console.log(`Applied preset: ${config.name}`);
+    };
+
+    const updatePresetInfo = (preset: string) => {
+        const infoDiv = document.getElementById("presetInfo");
+        if (!infoDiv) return;
+
+        if (preset === "disabled") {
+            infoDiv.innerHTML = "Automatic switching is disabled. Using manual proxy settings.";
+            return;
+        }
+
+        const config = PRESET_CONFIGS[preset as PresetType];
+        if (config) {
+            infoDiv.innerHTML = `
+                <strong>${config.name}</strong><br>
+                ${config.description}<br>
+                <span class="text-xs mt-1 block">
+                    Proxy: ${config.proxy.toUpperCase()} | 
+                    Routing: ${config.routingMode} | 
+                    Transport: ${config.transport}
+                </span>
+            `;
+        }
+    };
+
+    const logLoadAssistActivity = (message: string) => {
+        const logContent = document.getElementById("loadAssistLogContent");
+        const logContainer = document.getElementById("loadAssistLogs");
+        
+        if (!logContent || !logContainer) return;
+        
+        logContainer.classList.remove("hidden");
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = `[${timestamp}] ${message}\n`;
+        
+        if (logContent.textContent === "No activity yet") {
+            logContent.textContent = logEntry;
+        } else {
+            logContent.textContent = logEntry + logContent.textContent;
+        }
+    };
+
+    const tryNextProxy = async (sw: SW, settings: Settings, storage: StoreManager<"radius||settings">) => {
+        loadAssistAttempts++;
+        
+        if (loadAssistAttempts > 3) {
+            logLoadAssistActivity("Max retry attempts reached. Stopping auto-switching.");
+            return;
+        }
+
+        const currentProxy = storage.getVal("proxy") || "uv";
+        const nextProxy = currentProxy === "uv" ? "sj" : "uv";
+        
+        logLoadAssistActivity(`Detected proxy failure. Switching from ${currentProxy.toUpperCase()} to ${nextProxy.toUpperCase()}`);
+        
+        settings.proxy(nextProxy);
+        
+        // Give it a moment then reload the current iframe/page
+        setTimeout(() => {
+            logLoadAssistActivity(`Attempting to reload with ${nextProxy.toUpperCase()}`);
+        }, 500);
+    };
+
+    const monitorConsole = (sw: SW, settings: Settings, storage: StoreManager<"radius||settings">) => {
+        // Save original console.error
+        const originalError = console.error;
+        
+        // Override console.error to detect proxy failures
+        console.error = function(...args: any[]) {
+            originalError.apply(console, args);
+            
+            if (!loadAssistEnabled) return;
+            
+            // Check for common proxy failure patterns
+            const errorString = args.join(" ").toLowerCase();
+            if (
+                errorString.includes("failed to fetch") ||
+                errorString.includes("network error") ||
+                errorString.includes("websocket") ||
+                errorString.includes("proxy") ||
+                errorString.includes("bare") ||
+                errorString.includes("wisp")
+            ) {
+                tryNextProxy(sw, settings, storage);
+            }
+        };
+    };
+
+    const handleAutoSwitch = async (sw: SW, settings: Settings, storage: StoreManager<"radius||settings">) => {
+        const presetDropdown = document.getElementById("dropdownBox-autoSwitchPreset") as HTMLSelectElement;
+        const savedPreset = storage.getVal("autoSwitchPreset") || "disabled";
+        
+        presetDropdown.value = savedPreset;
+        updatePresetInfo(savedPreset);
+
+        presetDropdown.addEventListener("change", () => {
+            const selectedPreset = presetDropdown.value;
+            storage.setVal("autoSwitchPreset", selectedPreset);
+            updatePresetInfo(selectedPreset);
+        });
+    };
+
+    const handleLoadAssist = async (sw: SW, settings: Settings, storage: StoreManager<"radius||settings">) => {
+        const loadAssistDropdown = document.getElementById("dropdownBox-loadAssist") as HTMLSelectElement;
+        const loadAssistStatus = document.getElementById("loadAssistStatus");
+        const savedLoadAssist = storage.getVal("loadAssist") || "disabled";
+        
+        loadAssistDropdown.value = savedLoadAssist;
+        loadAssistEnabled = savedLoadAssist === "enabled";
+        
+        if (loadAssistEnabled && loadAssistStatus) {
+            loadAssistStatus.classList.remove("hidden");
+            monitorConsole(sw, settings, storage);
+        }
+
+        loadAssistDropdown.addEventListener("change", () => {
+            const value = loadAssistDropdown.value;
+            storage.setVal("loadAssist", value);
+            loadAssistEnabled = value === "enabled";
+            
+            if (loadAssistStatus) {
+                if (loadAssistEnabled) {
+                    loadAssistStatus.classList.remove("hidden");
+                    monitorConsole(sw, settings, storage);
+                    logLoadAssistActivity("Load Assist enabled");
+                } else {
+                    loadAssistStatus.classList.add("hidden");
+                    logLoadAssistActivity("Load Assist disabled");
+                }
+            }
+        });
+    };
+
+    const handleSave = async (sw: SW, settings: Settings, storage: StoreManager<"radius||settings">) => {
+        const saveButton = document.getElementById("saveExperimentalSettings") as HTMLButtonElement;
+        
+        saveButton.addEventListener("click", async () => {
+            const preset = storage.getVal("autoSwitchPreset");
+            
+            if (preset && preset !== "disabled") {
+                await applyPreset(preset as PresetType, sw, settings, storage);
+                logLoadAssistActivity(`Applied preset: ${PRESET_CONFIGS[preset as PresetType]?.name || preset}`);
+            }
+            
+            // Visual feedback
+            const originalText = saveButton.textContent;
+            saveButton.textContent = "✓ Saved!";
+            setTimeout(() => {
+                saveButton.textContent = originalText;
+            }, 2000);
+        });
+    };
+
+    const handleReset = (storage: StoreManager<"radius||settings">) => {
+        const resetButton = document.getElementById("resetExperimentalSettings") as HTMLButtonElement;
+        
+        resetButton.addEventListener("click", () => {
+            storage.setVal("autoSwitchPreset", "disabled");
+            storage.setVal("loadAssist", "disabled");
+            
+            const presetDropdown = document.getElementById("dropdownBox-autoSwitchPreset") as HTMLSelectElement;
+            const loadAssistDropdown = document.getElementById("dropdownBox-loadAssist") as HTMLSelectElement;
+            
+            if (presetDropdown) presetDropdown.value = "disabled";
+            if (loadAssistDropdown) loadAssistDropdown.value = "disabled";
+            
+            updatePresetInfo("disabled");
+            loadAssistEnabled = false;
+            
+            const loadAssistStatus = document.getElementById("loadAssistStatus");
+            if (loadAssistStatus) loadAssistStatus.classList.add("hidden");
+            
+            logLoadAssistActivity("Settings reset to defaults");
+            
+            // Visual feedback
+            const originalText = resetButton.textContent;
+            resetButton.textContent = "✓ Reset!";
+            setTimeout(() => {
+                resetButton.textContent = originalText;
+            }, 2000);
+        });
+    };
+
+    document.addEventListener("astro:page-load", async () => {
+        try {
+            const settings = await Settings.getInstance();
+            const sw = SW.getInstance().next().value!;
+            const storage = new StoreManager<"radius||settings">("radius||settings");
+            
+            await handleAutoSwitch(sw, settings, storage);
+            await handleLoadAssist(sw, settings, storage);
+            await handleSave(sw, settings, storage);
+            handleReset(storage);
+        } catch (err) {
+            console.error("Error initializing experimental settings:", err);
+        }
+    });
+</script>

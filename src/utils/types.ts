@@ -1,7 +1,7 @@
 import type { Props } from "astro";
 
 interface SettingsProps extends Props {
-    active: "appearance" | "credits" | "links" | "proxy" | "cloaking";
+    active: "appearance" | "credits" | "links" | "proxy" | "cloaking" | "experimental";
     title: string;
 }
 
