@@ -58,6 +58,9 @@ const link = Astro.url.searchParams.get("redir");
             shortcut: document.getElementById("shortcut") as HTMLElement
         }
         const client = new BareClient();
+        
+        let loadTimeout: number;
+        
         input.addEventListener("keypress", async (event: any) => {
             if (event.key === "Enter") {
                 const sw = SW.getInstance().next().value!;
@@ -65,6 +68,16 @@ const link = Astro.url.searchParams.get("redir");
                 iframe.classList.remove("hidden");
                 iframe.src = sw.encodeURL(input.value); 
                 buttons();
+                
+                // Set a timeout to detect slow/failed loads (Load Assist)
+                clearTimeout(loadTimeout);
+                loadTimeout = setTimeout(async () => {
+                    console.log("[Load Assist] Load timeout detected");
+                    const shouldRetry = await sw.handleLoadError();
+                    if (shouldRetry && input.value) {
+                        iframe.src = sw.encodeURL(input.value);
+                    }
+                }, 15000); // 15 second timeout
             }
         });
 
@@ -97,8 +110,12 @@ const link = Astro.url.searchParams.get("redir");
                 console.log("yet to be implemented");
             }); */
         }
-
+        
         iframe.addEventListener("load", async () => {
+            clearTimeout(loadTimeout);
+            const sw = SW.getInstance().next().value!;
+            sw.resetLoadAttempts(); // Reset on successful load
+            
             phlTitle.innerHTML = iframeWin!.document.title;
             const pageURL = await getURL();
             const data = await client.fetch(`https://www.google.com/s2/favicons?domain=${pageURL}&sz=64`);
@@ -107,7 +124,20 @@ const link = Astro.url.searchParams.get("redir");
             phlImage.src = object;
             bhl.classList.add("hidden");
             phl.classList.remove("hidden");
-        }); 
+        });
+
+        // Error detection for Load Assist
+        iframe.addEventListener("error", async () => {
+            console.log("[Load Assist] Iframe error detected");
+            const sw = SW.getInstance().next().value!;
+            const shouldRetry = await sw.handleLoadError();
+            if (shouldRetry && input.value) {
+                // Retry with new config
+                setTimeout(() => {
+                    iframe.src = sw.encodeURL(input.value);
+                }, 1000);
+            }
+        });
     }
 
     class CustomComponent extends HTMLElement {

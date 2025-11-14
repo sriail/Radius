@@ -1,9 +1,9 @@
 ---
-import SettingsLayout from "@layouts/SettingsLayout.astro";
+import Button from "@components/ui/Button.astro";
 import Dropdown from "@components/ui/Dropdown.astro";
 import Input from "@components/ui/Input.astro";
-import Button from "@components/ui/Button.astro";
-import { SearchEngines, type DropdownOptions } from "@utils/types";
+import SettingsLayout from "@layouts/SettingsLayout.astro";
+import { type DropdownOptions, SearchEngines } from "@utils/types";
 const SearchEngineOptions: DropdownOptions[] = [];
 Object.keys(SearchEngines).forEach((k) =>
     SearchEngineOptions.push({ name: k, value: SearchEngines[k] })
@@ -41,6 +41,26 @@ Object.keys(SearchEngines).forEach((k) =>
         <div class="mt-2">
             <p> Search Engine </p>
             <Dropdown id="sSwitcher" options={SearchEngineOptions} />
+        </div>
+        <div class="mt-2">
+            <p> Automatic Switching (Experimental) </p>
+            <p class="text-sm text-(--muted-foreground)"> Automatically switches proxy config for difficult sites like now.gg </p>
+            <Dropdown id="autoSwitcher" options={
+                [
+                    { name: 'Disabled', value: 'disabled', default: true },
+                    { name: 'Enabled', value: 'enabled' }
+                ]
+            } />
+        </div>
+        <div class="mt-2">
+            <p> Load Assist </p>
+            <p class="text-sm text-(--muted-foreground)"> Automatically tries different configs if loading fails </p>
+            <Dropdown id="loadAssistSwitcher" options={
+                [
+                    { name: 'Disabled', value: 'disabled', default: true },
+                    { name: 'Enabled', value: 'enabled' }
+                ]
+            } />
         </div>
         <div class="mt-2 w-80" id="wispServerSection">
             <div>
@@ -198,6 +218,22 @@ Object.keys(SearchEngines).forEach((k) =>
         });
     }
 
+    const autoSwitch = async (opts: Options) => {
+        const autoSwitchEl = document.getElementById("dropdownBox-autoSwitcher") as HTMLSelectElement;
+        autoSwitchEl.value = opts.storageManager.getVal("autoSwitch") === "true" ? "enabled" : "disabled";
+        autoSwitchEl.addEventListener("change", async () => {
+            opts.settings.autoSwitch(autoSwitchEl.value === "enabled");
+        });
+    }
+
+    const loadAssist = async (opts: Options) => {
+        const loadAssistEl = document.getElementById("dropdownBox-loadAssistSwitcher") as HTMLSelectElement;
+        loadAssistEl.value = opts.storageManager.getVal("loadAssist") === "true" ? "enabled" : "disabled";
+        loadAssistEl.addEventListener("change", async () => {
+            opts.settings.loadAssist(loadAssistEl.value === "enabled");
+        });
+    }
+
     document.addEventListener("astro:page-load", async () => {
         try {
             const settings = await Settings.getInstance();
@@ -208,6 +244,8 @@ Object.keys(SearchEngines).forEach((k) =>
             await proxy({settings, sw, storageManager});
             await searchEngine({settings, sw, storageManager});
             await wispServer({settings, sw, storageManager});
+            await autoSwitch({settings, sw, storageManager});
+            await loadAssist({settings, sw, storageManager});
         } catch (err) {
             //console.log(err);
         }

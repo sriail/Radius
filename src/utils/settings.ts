@@ -1,6 +1,6 @@
-import { StoreManager } from "./storage";
 import { BareMuxConnection } from "@mercuryworkshop/bare-mux";
 import { SW } from "@utils/proxy.ts";
+import { StoreManager } from "./storage";
 import { SearchEngines } from "./types";
 /**
  * The settings class
@@ -127,6 +127,30 @@ class Settings {
             this.#storageManager.setVal("adBlock", enabled.valueOf().toString());
         } else {
             this.#storageManager.setVal("adBlock", "true");
+        }
+    }
+
+    /**
+     * Enable or disable automatic switching feature
+     * @param enabled Whether automatic switching should be enabled
+     */
+    autoSwitch(enabled?: boolean) {
+        if (enabled === true || enabled === false) {
+            this.#storageManager.setVal("autoSwitch", enabled.valueOf().toString());
+        } else {
+            this.#storageManager.setVal("autoSwitch", "false");
+        }
+    }
+
+    /**
+     * Enable or disable load assist feature
+     * @param enabled Whether load assist should be enabled
+     */
+    loadAssist(enabled?: boolean) {
+        if (enabled === true || enabled === false) {
+            this.#storageManager.setVal("loadAssist", enabled.valueOf().toString());
+        } else {
+            this.#storageManager.setVal("loadAssist", "false");
         }
     }
 

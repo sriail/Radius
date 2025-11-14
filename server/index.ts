@@ -1,3 +1,8 @@
+import { fileURLToPath } from "node:url";
+import fastifyMiddie from "@fastify/middie";
+import fastifyStatic from "@fastify/static";
+import { server as wisp } from "@mercuryworkshop/wisp-js/server";
+import { createBareServer } from "@tomphttp/bare-server-node";
 import Fastify, {
     FastifyReply,
     FastifyRequest,
@@ -5,27 +10,22 @@ import Fastify, {
     FastifyServerFactoryHandler,
     RawServerDefault
 } from "fastify";
-import fastifyMiddie from "@fastify/middie";
-import fastifyStatic from "@fastify/static";
-import { fileURLToPath } from "node:url";
-import { server as wisp } from "@mercuryworkshop/wisp-js/server";
-import { createBareServer } from "@tomphttp/bare-server-node";
 
-//@ts-ignore this is created at runtime. No types associated w/it
-import { handler as astroHandler } from "../dist/server/entry.mjs";
 import { createServer } from "node:http";
 import { Socket } from "node:net";
+//@ts-ignore this is created at runtime. No types associated w/it
+import { handler as astroHandler } from "../dist/server/entry.mjs";
 
 const bareServer = createBareServer("/bare/", {
     connectionLimiter: {
         // Allow more connections but with shorter window
         maxConnectionsPerIP: parseInt(process.env.BARE_MAX_CONNECTIONS_PER_IP as string) || 500,
         windowDuration: parseInt(process.env.BARE_WINDOW_DURATION as string) || 10, // Shorter window
-        blockDuration: parseInt(process.env.BARE_BLOCK_DURATION as string) || 5,  // Shorter block
+        blockDuration: parseInt(process.env.BARE_BLOCK_DURATION as string) || 5, // Shorter block
         // Add custom validation function (if supported by bare-server-node)
         validateConnection: (req) => {
             // Whitelist keepalive requests
-            if (req.headers['connection']?.toLowerCase().includes('keep-alive')) {
+            if (req.headers["connection"]?.toLowerCase().includes("keep-alive")) {
                 return true; // Allow keepalive
             }
             return false; // Apply rate limit to others

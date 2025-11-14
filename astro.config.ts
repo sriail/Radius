@@ -1,19 +1,19 @@
-import { defineConfig } from "astro/config";
-import type { Plugin } from "vite";
-import { server as wisp } from "@mercuryworkshop/wisp-js/server";
 import node from "@astrojs/node";
-import tailwindcss from "@tailwindcss/vite";
-import icon from "astro-icon";
-import { viteStaticCopy } from "vite-plugin-static-copy";
-import playformCompress from "@playform/compress";
-import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
-import { scramjetPath } from "@mercuryworkshop/scramjet/path";
+//@ts-expect-error No types
+import { bareModulePath } from "@mercuryworkshop/bare-as-module3";
+import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
 //@ts-expect-error No types
 import { epoxyPath } from "@mercuryworkshop/epoxy-transport";
 import { libcurlPath } from "@mercuryworkshop/libcurl-transport";
-import { baremuxPath } from "@mercuryworkshop/bare-mux/node";
-//@ts-expect-error No types
-import { bareModulePath } from "@mercuryworkshop/bare-as-module3";
+import { scramjetPath } from "@mercuryworkshop/scramjet/path";
+import { server as wisp } from "@mercuryworkshop/wisp-js/server";
+import playformCompress from "@playform/compress";
+import tailwindcss from "@tailwindcss/vite";
+import { uvPath } from "@titaniumnetwork-dev/ultraviolet";
+import icon from "astro-icon";
+import { defineConfig } from "astro/config";
+import type { Plugin } from "vite";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 const viteWispServer = (): Plugin => {
     return {
