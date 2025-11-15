@@ -130,6 +130,26 @@ class Settings {
         }
     }
 
+    automaticSwitching(enabled?: boolean) {
+        const value =
+            enabled === true
+                ? "enabled"
+                : enabled === false
+                  ? "disabled"
+                  : this.#storageManager.getVal("automaticSwitching") || "disabled";
+        this.#storageManager.setVal("automaticSwitching", value);
+    }
+
+    loadAssist(enabled?: boolean) {
+        const value =
+            enabled === true
+                ? "enabled"
+                : enabled === false
+                  ? "disabled"
+                  : this.#storageManager.getVal("loadAssist") || "disabled";
+        this.#storageManager.setVal("loadAssist", value);
+    }
+
     async *#init() {
         yield this.theme(this.#storageManager.getVal("theme") || "default");
     }

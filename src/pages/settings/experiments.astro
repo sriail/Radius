@@ -1,0 +1,206 @@
+---
+import SettingsLayout from "@layouts/SettingsLayout.astro";
+import Dropdown from "@components/ui/Dropdown.astro";
+---
+<SettingsLayout active="experiments" title="Experiments">
+    <div class="w-full flex-grow">
+        <div class="mb-4">
+            <p class="text-sm text-(--muted-foreground) mb-4">
+                Experimental features that may improve your browsing experience. These features are in testing and may not work perfectly.
+            </p>
+        </div>
+        
+        <div class="mt-4">
+            <p class="font-semibold mb-1"> Automatic Switching </p>
+            <p class="text-sm text-(--muted-foreground) mb-2">
+                Automatically switches to optimized configs for hard-to-load sites like now.gg and YouTube.
+            </p>
+            <Dropdown id="automaticSwitching" options={
+                [
+                    { name: 'Enabled', value: 'enabled' },
+                    { name: 'Disabled', value: 'disabled', default: true }
+                ]
+            } />
+        </div>
+
+        <div class="mt-6">
+            <p class="font-semibold mb-1"> Load Assist </p>
+            <p class="text-sm text-(--muted-foreground) mb-2">
+                Monitors browser console for errors when the proxy is failing and switches to a different config automatically.
+            </p>
+            <Dropdown id="loadAssist" options={
+                [
+                    { name: 'Enabled', value: 'enabled' },
+                    { name: 'Disabled', value: 'disabled', default: true }
+                ]
+            } />
+        </div>
+    </div>
+</SettingsLayout>
+
+<script>
+    import { Settings } from "@utils/settings";
+    import { StoreManager } from "@utils/storage";
+    import { SW } from "@utils/proxy.ts";
+
+    // Site-specific optimized configurations
+    const SITE_CONFIGS = {
+        "now.gg": { transport: "epoxy", proxy: "uv" },
+        "youtube.com": { transport: "libcurl", proxy: "uv" },
+        "www.youtube.com": { transport: "libcurl", proxy: "uv" }
+    };
+
+    const automaticSwitching = async (settings: Settings, storage: StoreManager<"radius||settings">, sw: SW) => {
+        const dropdown = document.getElementById("dropdownBox-automaticSwitching") as HTMLSelectElement;
+        dropdown.value = storage.getVal("automaticSwitching") || "disabled";
+        
+        dropdown.addEventListener("change", async () => {
+            const enabled = dropdown.value === "enabled";
+            storage.setVal("automaticSwitching", dropdown.value);
+            
+            if (enabled) {
+                // Start monitoring for site changes
+                startAutomaticSwitching(sw, storage);
+            }
+        });
+
+        // Start monitoring if already enabled
+        if (dropdown.value === "enabled") {
+            startAutomaticSwitching(sw, storage);
+        }
+    };
+
+    const startAutomaticSwitching = (sw: SW, storage: StoreManager<"radius||settings">) => {
+        // Monitor iframe URL changes to detect proxied sites
+        const checkInterval = setInterval(() => {
+            const enabled = storage.getVal("automaticSwitching") === "enabled";
+            if (!enabled) {
+                clearInterval(checkInterval);
+                return;
+            }
+
+            try {
+                const iframes = document.querySelectorAll("iframe");
+                iframes.forEach((iframe) => {
+                    try {
+                        const iframeUrl = iframe.src;
+                        // Check if URL contains proxy prefix
+                        if (iframeUrl.includes("/~/scramjet/") || iframeUrl.includes(__uv$config?.prefix || "/service/")) {
+                            // Extract the actual URL
+                            let actualUrl = "";
+                            if (iframeUrl.includes("/~/scramjet/")) {
+                                actualUrl = iframeUrl.split("/~/scramjet/")[1];
+                            } else if (iframeUrl.includes(__uv$config?.prefix || "/service/")) {
+                                const prefix = __uv$config?.prefix || "/service/";
+                                actualUrl = iframeUrl.split(prefix)[1];
+                                // Decode UV URL
+                                if (typeof __uv$config?.decodeUrl === "function") {
+                                    actualUrl = __uv$config.decodeUrl(actualUrl);
+                                }
+                            }
+
+                            // Check if this is a site that needs optimized config
+                            for (const [site, config] of Object.entries(SITE_CONFIGS)) {
+                                if (actualUrl.includes(site)) {
+                                    const currentTransport = storage.getVal("transport");
+                                    const currentProxy = storage.getVal("proxy");
+                                    
+                                    if (currentTransport !== config.transport) {
+                                        console.log(`[Automatic Switching] Switching to ${config.transport} for ${site}`);
+                                        sw.setTransport(config.transport as "epoxy" | "libcurl");
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        // Cross-origin access error, ignore
+                    }
+                });
+            } catch (e) {
+                console.error("[Automatic Switching] Error:", e);
+            }
+        }, 2000);
+    };
+
+    const loadAssist = async (settings: Settings, storage: StoreManager<"radius||settings">, sw: SW) => {
+        const dropdown = document.getElementById("dropdownBox-loadAssist") as HTMLSelectElement;
+        dropdown.value = storage.getVal("loadAssist") || "disabled";
+        
+        dropdown.addEventListener("change", async () => {
+            const enabled = dropdown.value === "enabled";
+            storage.setVal("loadAssist", dropdown.value);
+            
+            if (enabled) {
+                startLoadAssist(sw, storage);
+            }
+        });
+
+        // Start monitoring if already enabled
+        if (dropdown.value === "enabled") {
+            startLoadAssist(sw, storage);
+        }
+    };
+
+    const startLoadAssist = (sw: SW, storage: StoreManager<"radius||settings">) => {
+        let errorCount = 0;
+        let lastSwitchTime = 0;
+        const ERROR_THRESHOLD = 3; // Number of errors before switching
+        const SWITCH_COOLDOWN = 30000; // 30 seconds cooldown between switches
+
+        // Override console.error to monitor errors
+        const originalError = console.error;
+        console.error = function(...args) {
+            const enabled = storage.getVal("loadAssist") === "enabled";
+            
+            if (enabled) {
+                const errorMessage = args.join(" ").toLowerCase();
+                
+                // Check for proxy-related errors
+                const isProxyError = errorMessage.includes("failed to fetch") ||
+                                   errorMessage.includes("network error") ||
+                                   errorMessage.includes("cors") ||
+                                   errorMessage.includes("blocked") ||
+                                   errorMessage.includes("service worker");
+
+                if (isProxyError) {
+                    errorCount++;
+                    console.log(`[Load Assist] Proxy error detected (${errorCount}/${ERROR_THRESHOLD})`);
+
+                    const now = Date.now();
+                    if (errorCount >= ERROR_THRESHOLD && (now - lastSwitchTime) > SWITCH_COOLDOWN) {
+                        errorCount = 0;
+                        lastSwitchTime = now;
+
+                        // Try switching to alternative config
+                        const currentTransport = storage.getVal("transport") || "libcurl";
+                        const currentProxy = storage.getVal("proxy") || "uv";
+                        
+                        // Switch to alternative transport
+                        const newTransport = currentTransport === "libcurl" ? "epoxy" : "libcurl";
+                        console.log(`[Load Assist] Switching from ${currentTransport} to ${newTransport}`);
+                        sw.setTransport(newTransport as "epoxy" | "libcurl");
+                        
+                        // Optionally notify user
+                        console.log("[Load Assist] Configuration switched due to detected errors. Please refresh the page.");
+                    }
+                }
+            }
+            
+            return originalError.apply(console, args);
+        };
+    };
+
+    document.addEventListener("astro:page-load", async () => {
+        try {
+            const settings = await Settings.getInstance();
+            const storageManager = new StoreManager<"radius||settings">("radius||settings");
+            const sw = SW.getInstance().next().value!;
+            
+            await automaticSwitching(settings, storageManager, sw);
+            await loadAssist(settings, storageManager, sw);
+        } catch (err) {
+            console.log(err);
+        }
+    });
+</script>
