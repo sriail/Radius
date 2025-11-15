@@ -21,15 +21,7 @@ const bareServer = createBareServer("/bare/", {
         // Allow more connections but with shorter window
         maxConnectionsPerIP: parseInt(process.env.BARE_MAX_CONNECTIONS_PER_IP as string) || 500,
         windowDuration: parseInt(process.env.BARE_WINDOW_DURATION as string) || 10, // Shorter window
-        blockDuration: parseInt(process.env.BARE_BLOCK_DURATION as string) || 5,  // Shorter block
-        // Add custom validation function (if supported by bare-server-node)
-        validateConnection: (req) => {
-            // Whitelist keepalive requests
-            if (req.headers['connection']?.toLowerCase().includes('keep-alive')) {
-                return true; // Allow keepalive
-            }
-            return false; // Apply rate limit to others
-        }
+        blockDuration: parseInt(process.env.BARE_BLOCK_DURATION as string) || 5  // Shorter block
     }
 });
 
@@ -47,7 +39,7 @@ const serverFactory: FastifyServerFactory = (
         .on("upgrade", (req, socket, head) => {
             if (bareServer.shouldRoute(req)) {
                 bareServer.routeUpgrade(req, socket as Socket, head);
-            } else if (req.url?.endsWith("/wisp/") || req.url?.endsWith("/adblock/")) {
+            } else if (req.url?.startsWith("/wisp") || req.url?.startsWith("/adblock")) {
                 console.log(req.url);
                 wisp.routeRequest(req, socket as Socket, head);
             }
