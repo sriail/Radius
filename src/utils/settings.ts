@@ -156,7 +156,16 @@ class Settings {
             "twitch.tv",
             "reddit.com",
             "twitter.com",
-            "x.com"
+            "x.com",
+            "instagram.com",
+            "whatsapp.com",
+            "tiktok.com",
+            "messenger.com",
+            "telegram.org",
+            "snapchat.com",
+            "linkedin.com",
+            "pinterest.com",
+            "threads.net",
         ];
 
         // Monitor navigation events
