@@ -166,6 +166,16 @@ class Settings {
             "linkedin.com",
             "pinterest.com",
             "threads.net",
+            "store.steampowered.com",
+            "store.epicgames.com",
+            "roblox.com",
+            "playstation.com",
+            "xbox.com",
+            "nintendo.com",
+            "itch.io",
+            "poki.com",
+            "crazygames.com"
+            
         ];
 
         // Monitor navigation events
