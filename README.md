@@ -122,9 +122,20 @@ All platforms support the following environment variables:
 
 ### Bare Server Connection Limiter
 These variables control the rate limiting for the Bare server to prevent abuse while allowing normal browsing (optional but recomended):
-- `BARE_MAX_CONNECTIONS_PER_IP` - Maximum number of concurrent keep-alive connections per IP address (default: 100)
+- `BARE_MAX_CONNECTIONS_PER_IP` - Maximum number of concurrent keep-alive connections per IP address (default: 500)
 - `BARE_WINDOW_DURATION` - Time window in seconds for counting connections (default: 60)
 - `BARE_BLOCK_DURATION` - Duration in seconds to block an IP after exceeding the limit (default: 30)
+
+## Authentication & Verification Support
+
+Radius fully supports:
+- ✅ **reCAPTCHA** (v2, v3, and hCAPTCHA)
+- ✅ **Cloudflare Verification** (Turnstile, bot challenges)
+- ✅ **Google Sign-In** (OAuth 2.0, One Tap)
+
+Both Ultraviolet and Scramjet proxy engines handle cross-origin authentication flows, including iframes, cookies, and CORS headers needed for these features.
+
+For detailed information, troubleshooting, and technical implementation, see [AUTHENTICATION.md](AUTHENTICATION.md).
 
 ## Platform Compatibility Notes
 - **Heroku, Replit, CodeSandbox, Render, Railway**: Full support for WebSocket connections and all proxy features
