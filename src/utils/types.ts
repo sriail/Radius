@@ -11,6 +11,14 @@ type DropdownOptions = {
     default?: boolean;
 };
 
+type VerificationType = "none" | "recaptcha" | "cloudflare";
+
+interface VerificationConfig {
+    type: VerificationType;
+    siteKey?: string;
+    token?: string;
+}
+
 const SearchEngines: Record<string, string> = {
     Aol: "https://search.aol.com/aol/search?q=%s",
     Bing: "https://bing.com/search?q=%s",
@@ -21,4 +29,4 @@ const SearchEngines: Record<string, string> = {
     Yandex: "https://yandex.com/search/?text=%s"
 };
 
-export { type SettingsProps, type DropdownOptions, SearchEngines };
+export { type SettingsProps, type DropdownOptions, type VerificationType, type VerificationConfig, SearchEngines };
