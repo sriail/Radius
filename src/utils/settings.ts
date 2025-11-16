@@ -130,6 +130,13 @@ class Settings {
         }
     }
 
+    verification(type: "none" | "recaptcha" | "cloudflare", siteKey?: string) {
+        this.#storageManager.setVal("verificationType", type);
+        if (siteKey) {
+            this.#storageManager.setVal("verificationSiteKey", siteKey);
+        }
+    }
+
     async *#init() {
         yield this.theme(this.#storageManager.getVal("theme") || "default");
     }

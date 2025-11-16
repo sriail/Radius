@@ -42,6 +42,29 @@ Object.keys(SearchEngines).forEach((k) =>
             <p> Search Engine </p>
             <Dropdown id="sSwitcher" options={SearchEngineOptions} />
         </div>
+        <div class="mt-2">
+            <p> Verification Type </p>
+            <Dropdown id="vTypeSwitcher" options={
+                [
+                    { name: 'None', value: 'none', default: true },
+                    { name: 'reCAPTCHA v3', value: 'recaptcha' },
+                    { name: 'Cloudflare Turnstile', value: 'cloudflare' }
+                ]
+            } />
+        </div>
+        <div class="mt-2 w-80 hidden" id="verificationSection">
+            <div>
+                <p> Verification Site Key </p>
+                <Input id="verificationSiteKey" placeholder="Enter your site key" />
+            </div>
+            <div class="mt-2 mb-2 hidden" id="verificationInfo">
+                <p class="text-blue-500" id="verificationInfo-inner"> Status... </p>
+            </div>
+            <div class="mt-2 flex flex-row gap-4">
+                <Button id="verificationSave" text="Save Verification" icon="lucide:save" />
+                <Button id="verificationReset" text="Reset" icon="lucide:rotate-ccw" />
+            </div>
+        </div>
         <div class="mt-2 w-80" id="wispServerSection">
             <div>
                 <p> Wisp Server </p>
@@ -198,6 +221,87 @@ Object.keys(SearchEngines).forEach((k) =>
         });
     }
 
+    const verification = async (opts: Options) => {
+        const vTypeEl = document.getElementById("dropdownBox-vTypeSwitcher") as HTMLSelectElement;
+        const verificationSection = document.getElementById("verificationSection") as HTMLDivElement;
+        const verificationSiteKey = document.getElementById("verificationSiteKey") as HTMLInputElement;
+        const verificationInfo = document.getElementById("verificationInfo") as HTMLElement;
+        const verificationInfoInner = document.getElementById("verificationInfo-inner") as HTMLParagraphElement;
+        const verificationSave = document.getElementById("verificationSave") as HTMLButtonElement;
+        const verificationReset = document.getElementById("verificationReset") as HTMLButtonElement;
+
+        const currentType = opts.storageManager.getVal("verificationType") || "none";
+        vTypeEl.value = currentType;
+        
+        if (currentType !== "none") {
+            verificationSection.classList.remove("hidden");
+            verificationSiteKey.value = opts.storageManager.getVal("verificationSiteKey") || "";
+        }
+
+        const reset = (hide: boolean = true) => {
+            if (hide) verificationInfo.classList.add("hidden");
+            verificationInfoInner.innerText = "Status...";
+            verificationInfoInner.classList.remove("text-red-500");
+            verificationInfoInner.classList.remove("text-green-500");
+            verificationInfoInner.classList.add("text-blue-500");
+        };
+
+        vTypeEl.addEventListener("change", () => {
+            const selectedType = vTypeEl.value;
+            if (selectedType === "none") {
+                verificationSection.classList.add("hidden");
+                opts.sw.setVerificationConfig({ type: "none" });
+            } else {
+                verificationSection.classList.remove("hidden");
+            }
+        });
+
+        verificationSave.addEventListener("click", async () => {
+            const siteKey = verificationSiteKey.value.trim();
+            const type = vTypeEl.value as "none" | "recaptcha" | "cloudflare";
+
+            verificationInfo.classList.remove("hidden");
+
+            if (type !== "none" && !siteKey) {
+                reset(false);
+                verificationInfoInner.innerText = "Site key is required for verification!";
+                verificationInfoInner.classList.remove("text-blue-500");
+                verificationInfoInner.classList.add("text-red-500");
+                setTimeout(reset, 4000);
+                return;
+            }
+
+            opts.sw.setVerificationConfig({
+                type: type,
+                siteKey: siteKey || undefined
+            });
+
+            reset(false);
+            verificationInfoInner.innerText = "Verification settings saved!";
+            verificationInfoInner.classList.remove("text-blue-500");
+            verificationInfoInner.classList.add("text-green-500");
+
+            // Refresh the transport with new verification settings
+            await opts.sw.setTransport();
+
+            setTimeout(reset, 4000);
+        });
+
+        verificationReset.addEventListener("click", () => {
+            vTypeEl.value = "none";
+            verificationSiteKey.value = "";
+            verificationSection.classList.add("hidden");
+            opts.sw.setVerificationConfig({ type: "none" });
+            
+            verificationInfo.classList.remove("hidden");
+            reset(false);
+            verificationInfoInner.innerText = "Verification reset!";
+            verificationInfoInner.classList.remove("text-blue-500");
+            verificationInfoInner.classList.add("text-green-500");
+            setTimeout(reset, 4000);
+        });
+    }
+
     document.addEventListener("astro:page-load", async () => {
         try {
             const settings = await Settings.getInstance();
@@ -207,6 +311,7 @@ Object.keys(SearchEngines).forEach((k) =>
             await transport({settings, sw, storageManager});
             await proxy({settings, sw, storageManager});
             await searchEngine({settings, sw, storageManager});
+            await verification({settings, sw, storageManager});
             await wispServer({settings, sw, storageManager});
         } catch (err) {
             //console.log(err);
