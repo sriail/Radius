@@ -147,30 +147,55 @@ class SW {
         createScript("/marcs/scramjet.all.js", true);
 
         checkScripts().then(async () => {
-            this.#baremuxConn = new BareMuxConnection("/erab/worker.js");
-            await this.setTransport();
-
-            // Load the ScramjetController class from the factory function
-            const { ScramjetController } = $scramjetLoadController();
-
-            this.#scramjetController = new ScramjetController({
-                prefix: "/~/scramjet/",
-                files: {
-                    wasm: "/marcs/scramjet.wasm.wasm",
-                    all: "/marcs/scramjet.all.js",
-                    sync: "/marcs/scramjet.sync.js"
-                },
-                flags: {
-                    rewriterLogs: false
-                }
-            });
+            // Register service worker first and wait for it to be ready
             if ("serviceWorker" in navigator) {
-                await this.#scramjetController.init();
-                navigator.serviceWorker.ready.then(async (reg) => {
-                    console.log("SW ready to go!");
-                    this.#serviceWorker = reg;
+                // Register the service worker
+                const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
+                
+                // Wait for the service worker to be active
+                if (registration.installing) {
+                    await new Promise((resolve) => {
+                        registration.installing!.addEventListener('statechange', (e) => {
+                            if ((e.target as ServiceWorker).state === 'activated') {
+                                resolve(undefined);
+                            }
+                        });
+                    });
+                } else if (registration.waiting) {
+                    await new Promise((resolve) => {
+                        registration.waiting!.addEventListener('statechange', (e) => {
+                            if ((e.target as ServiceWorker).state === 'activated') {
+                                resolve(undefined);
+                            }
+                        });
+                    });
+                }
+                
+                // Ensure service worker is ready
+                await navigator.serviceWorker.ready;
+                this.#serviceWorker = registration;
+                console.log("SW registered and ready!");
+
+                // Load the ScramjetController class from the factory function
+                const { ScramjetController } = $scramjetLoadController();
+
+                this.#scramjetController = new ScramjetController({
+                    prefix: "/~/scramjet/",
+                    files: {
+                        wasm: "/marcs/scramjet.wasm.wasm",
+                        all: "/marcs/scramjet.all.js",
+                        sync: "/marcs/scramjet.sync.js"
+                    },
+                    flags: {
+                        rewriterLogs: false
+                    }
                 });
-                navigator.serviceWorker.register("/sw.js", { scope: "/" });
+                
+                await this.#scramjetController.init();
+
+                // Initialize bare-mux connection after service worker is ready
+                this.#baremuxConn = new BareMuxConnection("/erab/worker.js");
+                await this.setTransport();
             } else {
                 throw new Error(
                     "Your browser is not supported! This website uses Service Workers heavily."
