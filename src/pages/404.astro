@@ -22,8 +22,27 @@ const images = import.meta.glob<{ default: ImageMetadata }>(
                 <p> 404 Page not found </p>
             </div>
             <div class="p-6 pt-0 mt-4">
-                <a href="/" class="bg-(--primary) h-10 rounded-lg text-sm font-medium px-4 py-2 text-(--card)"> Go Home </a>
+                <button id="goHomeBtn" class="bg-(--primary) h-10 rounded-lg text-sm font-medium px-4 py-2 text-(--card) cursor-pointer"> Go Home </button>
             </div>
         </div>
     </div>
 </Layout>
+
+<script>
+    // Break out of iframe if loaded within one (e.g., from proxy navigation)
+    if (window.self !== window.top) {
+        window.top!.location.href = window.location.href;
+    }
+
+    // Ensure the home button always navigates the top window
+    const goHomeBtn = document.getElementById("goHomeBtn");
+    if (goHomeBtn) {
+        goHomeBtn.addEventListener("click", () => {
+            if (window.self !== window.top) {
+                window.top!.location.href = "/";
+            } else {
+                window.location.href = "/";
+            }
+        });
+    }
+</script>
