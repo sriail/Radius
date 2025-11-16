@@ -176,13 +176,14 @@ Don't wory, add this html script into any basic Website builder, it uses QuickDe
 ```
 
 Or vist the official repo (works on any website hosting service or builder, no backend needed!)
-![QuickDeploy](https://github.com/sriail/QuickDeploy/tree/main)
+![QuickDeploy(https://github.com/sriail/QuickDeploy/tree/main)]
 
 # Credits
 [Owski](https://github.com/unretain) - Owner <br>
 [proudparrot2](https://github.com/proudparrot2) - Founder and original dev <br>
 [MotorTruck1221](https://github.com/motortruck1221) - Astro rewrite and lead dev <br>
 [All of the contributors!](https://github.com/RadiusProxy/Radius/graphs/contributors)
+
 
 
 
