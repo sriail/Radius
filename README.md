@@ -130,6 +130,16 @@ These variables control the rate limiting for the Bare server to prevent abuse w
 - **Heroku, Replit, CodeSandbox, Render, Railway**: Full support for WebSocket connections and all proxy features
 - **Vercel, Netlify**: Limited WebSocket support; some proxy features may not work as expected. These platforms work best for static content and serverless functions but may have limitations with the proxy backend.
 
+## Verification Support
+Radius supports bot protection through reCAPTCHA v3 and Cloudflare Turnstile verification. This helps protect your deployment from abuse while maintaining a seamless user experience.
+
+**Supported verification types:**
+- reCAPTCHA v3 (Google)
+- Cloudflare Turnstile
+- None (default)
+
+Verification is fully integrated with all routing modes (Wisp/Bare) and transports (Epoxy/Libcurl). For detailed setup instructions, see [VERIFICATION.md](VERIFICATION.md).
+
 ## Don't Want To Deploy But The Link Is Inexcessable?
 Don't wory, add this html script into any basic Website builder, it uses QuickDeploy to instantley open in about:blank and will work with ANY WEBSITE BUILDER or STATIC GENERATER/DEPLOYMENT!
 ```html
