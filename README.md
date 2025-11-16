@@ -85,7 +85,7 @@ git push heroku main
 
 ## Deploy with Docker
 
-Radius includes a Dockerfile for containerized deployments:
+Radius by Defult includes a Dockerfile for containerized deployments:
 
 ```bash
 # Build the Docker image
@@ -125,7 +125,7 @@ These variables control the rate limiting for the Bare server to prevent abuse w
 - `BARE_BLOCK_DURATION` - Duration in seconds to block an IP after exceeding the limit (default: 30)
 
 ## Don't Want To Deploy But The Link Is Inexcessable?
-Don't wory, add this html script into any basic Website builder, it uses QuickDeploy to instantley open in about:blank and will work with ANY WEBSITE BUILDER or STATIC GENERATER/DEPLOYMENT!
+Add this html script into any basic Website builder, it uses QuickDeploy to instantley open in about:blank and will work with ANY WEBSITE BUILDER or STATIC GENERATER/DEPLOYMENT!
 ```html
 <!DOCTYPE html>
 <html lang="en">
@@ -178,13 +178,15 @@ Don't wory, add this html script into any basic Website builder, it uses QuickDe
 Or vist the official repo (works on any website hosting service or builder, no backend needed!)
 [QuickDeploy](https://github.com/sriail/QuickDeploy/tree/main)
 
-If you can not deploy, visit a example deployment with Radius [Hear!](quick-deploy-beige.vercel.app)
+If you can not deploy, visit a example deployment with Radius using QuickDeploy [Hear!](quick-deploy-beige.vercel.app)
 
 # Credits
-[Owski](https://github.com/unretain) - Owner <br>
-[proudparrot2](https://github.com/proudparrot2) - Founder and original dev <br>
-[MotorTruck1221](https://github.com/motortruck1221) - Astro rewrite and lead dev <br>
+[sriail](https://github.com/sriail) - Owner and current cev of this repo <br>
+[Owski](https://github.com/unretain) - Owner of the Origonal Radius Proxy <br>
+[proudparrot2](https://github.com/proudparrot2) - Founder and original dev of Radius <br>
+[MotorTruck1221](https://github.com/motortruck1221) - Astro rewrite and lead dev of Radius <br>
 [All of the contributors!](https://github.com/RadiusProxy/Radius/graphs/contributors)
+
 
 
 
