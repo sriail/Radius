@@ -7,33 +7,12 @@ This guide provides detailed instructions for deploying Radius to various hostin
 - [Quick Deploy Options](#quick-deploy-options)
 - [Detailed Deployment Instructions](#detailed-deployment-instructions)
   - [Heroku](#heroku)
-  - [Render](#render)
-  - [Railway](#railway)
   - [Replit](#replit)
   - [CodeSandbox](#codesandbox)
-  - [Vercel](#vercel)
-  - [Netlify](#netlify)
-  - [Docker](#docker)
 - [Environment Variables](#environment-variables)
 - [Troubleshooting](#troubleshooting)
 
-## Platform Compatibility
 
-Radius requires WebSocket support for full proxy functionality. Here's how different platforms support it:
-
-### ✅ Full Support (Recommended)
-These platforms fully support WebSocket connections and all proxy features:
-- **Heroku** - Classic PaaS with excellent WebSocket support
-- **Render** - Modern cloud platform with native WebSocket support
-- **Railway** - Developer-friendly platform with full WebSocket support
-- **Replit** - Interactive development environment with WebSocket support
-- **CodeSandbox** - Cloud development environment
-- **Docker** - Self-hosted solution with complete control
-
-### ⚠️ Limited Support
-These platforms have limitations with WebSocket connections:
-- **Vercel** - Serverless functions have WebSocket limitations
-- **Netlify** - Functions don't support long-lived WebSocket connections
 
 ## Quick Deploy Options
 
@@ -41,12 +20,6 @@ These platforms have limitations with WebSocket connections:
 
 #### Heroku
 [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/RadiusProxy/Radius)
-
-#### Render
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy)
-
-#### Railway
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template?template=https://github.com/RadiusProxy/Radius)
 
 #### Replit
 [![Run on Replit](https://replit.com/badge/github/RadiusProxy/Radius)](https://replit.com/new/github/RadiusProxy/Radius)
@@ -86,44 +59,6 @@ heroku open
 - Uses `app.json` for app configuration
 - Automatically installs dependencies and builds the app
 
-### Render
-
-**Prerequisites:**
-- Render account
-- GitHub repository
-
-**Deployment Steps:**
-1. Go to [Render Dashboard](https://dashboard.render.com)
-2. Click "New +" and select "Web Service"
-3. Connect your GitHub repository
-4. Render will automatically detect the `render.yaml` configuration
-5. Click "Create Web Service"
-6. Wait for the deployment to complete
-
-**Configuration:**
-- Uses `render.yaml` for service definition
-- Build Command: `npm install && npm run build`
-- Start Command: `npm run start`
-
-### Railway
-
-**Prerequisites:**
-- Railway account
-- GitHub repository
-
-**Deployment Steps:**
-1. Click the "Deploy on Railway" button above, or
-2. Go to [Railway Dashboard](https://railway.app)
-3. Click "New Project" → "Deploy from GitHub repo"
-4. Select your repository
-5. Railway will automatically detect the `railway.json` configuration
-6. The app will deploy automatically
-
-**Configuration:**
-- Uses `railway.json` for build configuration
-- Automatically detects Node.js environment
-- WebSocket support is built-in
-
 ### Replit
 
 **Prerequisites:**
@@ -159,56 +94,6 @@ heroku open
 - Uses `.codesandbox/tasks.json` for task definitions
 - Supports both development and production modes
 - Ports 4321 (dev) and 8080 (prod) are configured
-
-### Vercel
-
-**Prerequisites:**
-- Vercel account
-- GitHub repository
-
-**Deployment Steps:**
-1. Go to [Vercel Dashboard](https://vercel.com/dashboard)
-2. Click "Add New" → "Project"
-3. Import your GitHub repository
-4. Vercel will automatically detect the `vercel.json` configuration
-5. Click "Deploy"
-
-**Important Notes:**
-- ⚠️ Vercel has limited WebSocket support in serverless functions
-- Some proxy features may not work as expected
-- Best suited for the static frontend, backend may have limitations
-
-**Configuration:**
-- Uses `vercel.json` for deployment settings
-- Serverless function timeout limitations apply
-
-### Netlify
-
-**Prerequisites:**
-- Netlify account
-- GitHub repository
-
-**Deployment Steps:**
-1. Go to [Netlify Dashboard](https://app.netlify.com)
-2. Click "Add new site" → "Import an existing project"
-3. Connect to GitHub and select your repository
-4. Netlify will automatically detect `netlify.toml`
-5. Click "Deploy site"
-
-**Important Notes:**
-- ⚠️ Netlify Functions don't support long-lived WebSocket connections
-- Some proxy features may not work as expected
-- Best suited for static content
-
-**Configuration:**
-- Uses `netlify.toml` for build settings
-- Uses `netlify/functions/server.ts` for serverless function
-
-### Docker
-
-**Prerequisites:**
-- Docker installed locally or on a server
-- Docker Compose (optional)
 
 **Using Docker:**
 ```bash
@@ -252,7 +137,7 @@ All platforms support the following environment variables:
 heroku config:set PORT=8080
 ```
 
-**Render / Railway / Replit:**
+Replit:**
 Set in the platform's dashboard or settings
 
 **Docker:**
@@ -288,10 +173,6 @@ app.listen({ port: port, host: "0.0.0.0" })
 ```
 
 ### Platform-Specific Issues
-
-**Vercel/Netlify:**
-- WebSocket limitations are inherent to the serverless architecture
-- Consider using Heroku, Render, or Railway for full functionality
 
 **Heroku:**
 - Free tier dynos sleep after 30 minutes of inactivity
