@@ -30,6 +30,13 @@ If you can't donate, tell your friends about Radius!
 [EpoxyTransport](https://github.com/MercuryWorkshop/EpoxyTransport) Bare-mux transport using epoxy-tls <br>
 [CurlTransport](https://github.com/MercuryWorkshop/CurlTransport) Bare-mux transport using libcurl.js <br>
 
+## Features
+✅ **Enhanced CAPTCHA Support** - Full support for reCAPTCHA v2/v3, hCaptcha, Cloudflare Turnstile, and Yandex SmartCaptcha<br>
+✅ **Multiple Proxy Engines** - Ultraviolet and Scramjet for maximum compatibility<br>
+✅ **WebSocket Support** - Full support for real-time applications via Wisp<br>
+✅ **Modern UI** - Clean, responsive interface built with TailwindCSS<br>
+✅ **Easy Deployment** - Deploy to Heroku, Replit, Docker, Yandex Cloud, and more
+
 # Setup
 > [!TIP]
 > Deploy localy on localhost to have a adress only you can acess, all of the functionaly will remain the same and the site will work properley! To do this, set up with (`pnpm`) using the staps below and visit http://localhost:8080 for a full conpleate site localy!

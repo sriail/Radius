@@ -1,19 +1,39 @@
 /**
- * Enhanced CAPTCHA and Cloudflare verification handler
- * This module ensures that reCAPTCHA, hCaptcha, and Cloudflare Turnstile
- * work seamlessly within the proxy environment
+ * Enhanced CAPTCHA and verification handler
+ * This module ensures that reCAPTCHA v2/v3, hCaptcha, Cloudflare Turnstile, 
+ * and Yandex SmartCaptcha work seamlessly within the proxy environment
  */
 
 /**
  * List of CAPTCHA and verification-related domains
+ * Enhanced to support reCAPTCHA v2/v3, hCaptcha, Cloudflare Turnstile, and Yandex SmartCaptcha
  */
 const CAPTCHA_DOMAINS = [
-    "google.com",
+    // Google reCAPTCHA domains
+    "google.com/recaptcha",
+    "www.google.com/recaptcha",
     "recaptcha.net",
+    "www.recaptcha.net",
+    "gstatic.com/recaptcha",
+    "www.gstatic.com/recaptcha",
+    "google.com",
     "gstatic.com",
+    // hCaptcha domains
     "hcaptcha.com",
+    "newassets.hcaptcha.com",
+    "js.hcaptcha.com",
+    // Cloudflare Turnstile domains
     "cloudflare.com",
-    "challenges.cloudflare.com"
+    "challenges.cloudflare.com",
+    "turnstile.cloudflare.com",
+    // Yandex SmartCaptcha and Cloud domains
+    "smartcaptcha.yandexcloud.net",
+    "cloud.yandex.com",
+    "cloud.yandex.ru",
+    "api.cloud.yandex.net",
+    "storage.yandexcloud.net",
+    "yandex.com/showcaptcha",
+    "yastatic.net/s3/captcha-frontend"
 ];
 
 /**
@@ -24,8 +44,14 @@ export function initializeCaptchaHandlers() {
     if (typeof window === "undefined") return;
 
     // Ensure global CAPTCHA callbacks are accessible
+    // Google reCAPTCHA
     if (!window.___grecaptcha_cfg) {
         window.___grecaptcha_cfg = { clients: {} };
+    }
+
+    // Yandex SmartCaptcha
+    if (!window.smartCaptcha) {
+        window.smartCaptcha = {};
     }
 
     // Monitor for CAPTCHA iframe creation and ensure proper setup
@@ -39,18 +65,26 @@ export function initializeCaptchaHandlers() {
                         src.includes("recaptcha") ||
                         src.includes("hcaptcha") ||
                         src.includes("challenges.cloudflare.com") ||
-                        src.includes("turnstile")
+                        src.includes("turnstile") ||
+                        src.includes("smartcaptcha.yandexcloud.net") ||
+                        src.includes("yandex.com/showcaptcha")
                     ) {
                         // Ensure the iframe has proper sandbox permissions
                         if (node.sandbox && node.sandbox.length > 0) {
                             node.sandbox.add("allow-same-origin");
                             node.sandbox.add("allow-scripts");
                             node.sandbox.add("allow-forms");
+                            node.sandbox.add("allow-popups");
                         }
 
                         // Ensure credentials are included for CAPTCHA cookies
                         if (node.getAttribute("credentialless") !== null) {
                             node.removeAttribute("credentialless");
+                        }
+
+                        // Set proper referrer policy for CAPTCHA requests
+                        if (!node.referrerPolicy) {
+                            node.referrerPolicy = "strict-origin-when-cross-origin";
                         }
                     }
                 }
@@ -73,6 +107,7 @@ export function initializeCaptchaHandlers() {
 
 /**
  * Enhance cookie handling to ensure CAPTCHA tokens are properly stored
+ * Supports reCAPTCHA, hCaptcha, Cloudflare Turnstile, and Yandex SmartCaptcha
  */
 function enhanceCookieHandling() {
     // Store original cookie descriptor
@@ -85,8 +120,16 @@ function enhanceCookieHandling() {
             },
             set(value) {
                 // Ensure SameSite=None for CAPTCHA cookies in cross-origin iframes
-                if (typeof value === "string" && value.includes("_GRECAPTCHA")) {
-                    if (!value.includes("SameSite")) {
+                if (typeof value === "string") {
+                    const needsSameSite =
+                        value.includes("_GRECAPTCHA") || // Google reCAPTCHA
+                        value.includes("hmt_id") || // hCaptcha
+                        value.includes("cf_clearance") || // Cloudflare
+                        value.includes("yandex") || // Yandex general
+                        value.includes("smart-captcha") || // Yandex SmartCaptcha
+                        value.includes("spravka"); // Yandex verification
+
+                    if (needsSameSite && !value.includes("SameSite")) {
                         value += "; SameSite=None; Secure";
                     }
                 }
@@ -163,12 +206,17 @@ function enhanceNetworkRequests() {
 }
 
 /**
- * Global declaration for reCAPTCHA config
+ * Global declarations for CAPTCHA systems
  */
 declare global {
     interface Window {
+        // Google reCAPTCHA config
         ___grecaptcha_cfg?: {
             clients: Record<string, any>;
+            [key: string]: any;
+        };
+        // Yandex SmartCaptcha
+        smartCaptcha?: {
             [key: string]: any;
         };
     }
