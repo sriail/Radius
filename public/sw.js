@@ -59,13 +59,48 @@ self.addEventListener("fetch", function (event) {
                 request = enhanceCaptchaRequest(event.request);
             }
 
+            let response;
             if (url.startsWith(location.origin + __uv$config.prefix)) {
-                return await uv.fetch(event);
+                response = await uv.fetch(event);
             } else if (sj.route(event)) {
-                return await sj.fetch(event);
+                response = await sj.fetch(event);
             } else {
-                return await fetch(request);
+                response = await fetch(request);
             }
+
+            // Inject popup interceptor script into HTML pages
+            if (response && response.headers.get("content-type")?.includes("text/html")) {
+                // Only inject into proxied content
+                if (url.startsWith(location.origin + __uv$config.prefix) || sj.route(event)) {
+                    try {
+                        const text = await response.text();
+                        // Inject the popup interceptor script at the beginning of the body or head
+                        const injectedScript = '<script src="/popup-interceptor.js"></script>';
+                        let modifiedText = text;
+
+                        // Try to inject into <head> first, then <body>, then at start of html
+                        if (text.includes("<head>")) {
+                            modifiedText = text.replace("<head>", "<head>" + injectedScript);
+                        } else if (text.includes("<body>")) {
+                            modifiedText = text.replace("<body>", "<body>" + injectedScript);
+                        } else if (text.includes("<html>")) {
+                            modifiedText = text.replace("<html>", "<html>" + injectedScript);
+                        }
+
+                        // Create new response with modified content
+                        response = new Response(modifiedText, {
+                            status: response.status,
+                            statusText: response.statusText,
+                            headers: response.headers
+                        });
+                    } catch (e) {
+                        console.error("[Radius SW] Failed to inject popup interceptor:", e);
+                        // Return original response if injection fails
+                    }
+                }
+            }
+
+            return response;
         })()
     );
 });
