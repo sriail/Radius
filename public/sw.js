@@ -45,6 +45,92 @@ function enhanceCaptchaRequest(request) {
     });
 }
 
+// Script to inject at the very beginning of HTML documents
+const INTERCEPT_SCRIPT = `<script>
+(function() {
+    'use strict';
+    console.log('[Iframe Intercept] Script injected by service worker');
+    const originalWindowOpen = window.open;
+    window.open = function(url, target, features) {
+        console.log('[Iframe Intercept] window.open called:', url, target);
+        if (url && window.parent !== window) {
+            try {
+                console.log('[Iframe Intercept] Posting message to parent');
+                window.parent.postMessage({
+                    type: 'navigate-iframe',
+                    url: url.toString()
+                }, '*');
+                return null;
+            } catch (e) {
+                console.error('[Iframe Intercept] Failed to communicate with parent:', e);
+            }
+        }
+        return originalWindowOpen.call(this, url, target, features);
+    };
+    
+    document.addEventListener('click', function(e) {
+        const anchor = e.target.closest('a');
+        if (anchor && anchor.href) {
+            const target = anchor.getAttribute('target');
+            console.log('[Iframe Intercept] Link clicked:', anchor.href, 'target:', target);
+            if (target === '_blank' || target === '_new' || target === '_parent' || target === '_top') {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('[Iframe Intercept] Intercepting, will call window.open');
+                window.open(anchor.href);
+            }
+        }
+    }, true);
+    
+    // Set base target to prevent new windows
+    setTimeout(function() {
+        const baseTag = document.querySelector('base');
+        if (!baseTag && document.head) {
+            const newBase = document.createElement('base');
+            newBase.target = '_self';
+            document.head.insertBefore(newBase, document.head.firstChild);
+            console.log('[Iframe Intercept] Created base tag with target="_self"');
+        }
+    }, 0);
+})();
+</script>`;
+
+// Helper to inject script into HTML responses
+async function injectInterceptScript(response) {
+    const contentType = response.headers.get('content-type') || '';
+    console.log('[SW] Response content-type:', contentType);
+    if (!contentType.includes('text/html')) {
+        console.log('[SW] Not HTML, skipping injection');
+        return response;
+    }
+    
+    try {
+        let text = await response.text();
+        console.log('[SW] Got response text, length:', text.length);
+        
+        // Inject the script right after the opening <html> tag or at the start
+        if (text.includes('<html')) {
+            text = text.replace(/<html([^>]*)>/, `<html$1>${INTERCEPT_SCRIPT}`);
+            console.log('[SW] Injected after <html> tag');
+        } else if (text.includes('<head')) {
+            text = text.replace(/<head([^>]*)>/, `<head$1>${INTERCEPT_SCRIPT}`);
+            console.log('[SW] Injected after <head> tag');
+        } else {
+            text = INTERCEPT_SCRIPT + text;
+            console.log('[SW] Injected at start');
+        }
+        
+        return new Response(text, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers
+        });
+    } catch (e) {
+        console.error('[SW] Failed to inject script:', e);
+        return response;
+    }
+}
+
 self.addEventListener("fetch", function (event) {
     event.respondWith(
         (async () => {
@@ -59,13 +145,24 @@ self.addEventListener("fetch", function (event) {
                 request = enhanceCaptchaRequest(event.request);
             }
 
+            let response;
             if (url.startsWith(location.origin + __uv$config.prefix)) {
-                return await uv.fetch(event);
+                response = await uv.fetch(event);
+                // Inject our script into proxied HTML content
+                if (event.request.destination === 'document' || event.request.destination === 'iframe') {
+                    response = await injectInterceptScript(response);
+                }
             } else if (sj.route(event)) {
-                return await sj.fetch(event);
+                response = await sj.fetch(event);
+                // Inject our script into proxied HTML content
+                if (event.request.destination === 'document' || event.request.destination === 'iframe') {
+                    response = await injectInterceptScript(response);
+                }
             } else {
-                return await fetch(request);
+                response = await fetch(request);
             }
+            
+            return response;
         })()
     );
 });
