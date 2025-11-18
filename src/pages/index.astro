@@ -32,7 +32,7 @@ const link = Astro.url.searchParams.get("redir");
                 </div>
             </div> */}
         </div>
-        <iframe id="iframe" class="fixed h-[calc(100%-3.5rem)] mt-14 w-full hidden bg-(--background)" />
+        <iframe id="iframe" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-orientation-lock allow-pointer-lock allow-presentation" class="fixed h-[calc(100%-3.5rem)] mt-14 w-full hidden bg-(--background)" />
         <link-element data-link={link} />
     </div>
 </Layout>
@@ -102,6 +102,50 @@ const link = Astro.url.searchParams.get("redir");
             }); */
         }
 
+        // Intercept popup attempts from within the iframe by injecting a script
+        const interceptPopups = () => {
+            try {
+                if (!iframeWin || !iframeWin.document) return;
+                
+                // Check if we can access the iframe document (same-origin or via proxy)
+                const iframeDoc = iframeWin.document;
+                
+                // Create a script element to inject into the iframe
+                const script = iframeDoc.createElement('script');
+                script.src = '/popup-interceptor.js';
+                script.async = true;
+                
+                // Append the script to the iframe's document
+                if (iframeDoc.head) {
+                    iframeDoc.head.appendChild(script);
+                    console.log('[Radius] Popup interceptor script injected');
+                } else if (iframeDoc.body) {
+                    iframeDoc.body.appendChild(script);
+                    console.log('[Radius] Popup interceptor script injected to body');
+                }
+            } catch (e) {
+                // This will fail due to cross-origin restrictions
+                // In this case, rely on the sandbox attribute to prevent popups from escaping
+                console.debug('[Radius] Could not inject popup interceptor (cross-origin):', e);
+                console.log('[Radius] Relying on sandbox attribute to prevent popup escaping');
+            }
+        };
+
+        // Listen for popup interception messages from iframe
+        window.addEventListener('message', (event) => {
+            // Only accept messages from our iframe
+            if (event.source !== iframeWin) return;
+            
+            if (event.data?.type === 'radius-popup-intercept' && event.data?.url) {
+                console.log('[Radius] Received popup intercept message, loading in iframe:', event.data.url);
+                // Load the URL in the main iframe instead of opening a new window
+                const url = event.data.url;
+                if (url) {
+                    iframe.src = sw.encodeURL(url);
+                }
+            }
+        });
+
         iframe.addEventListener("load", async () => {
             phlTitle.innerHTML = iframeWin!.document.title;
             const pageURL = await getURL();
@@ -111,6 +155,12 @@ const link = Astro.url.searchParams.get("redir");
             phlImage.src = object;
             bhl.classList.add("hidden");
             phl.classList.remove("hidden");
+            
+            // Try to inject popup interceptor after the iframe loads
+            // Use a small delay to ensure the iframe document is ready
+            setTimeout(() => {
+                interceptPopups();
+            }, 100);
         }); 
     }
 
