@@ -9,6 +9,7 @@ This guide provides detailed instructions for deploying Radius to various hostin
   - [Heroku](#heroku)
   - [Replit](#replit)
   - [CodeSandbox](#codesandbox)
+  - [Yandex Cloud](#yandex-cloud)
 - [Environment Variables](#environment-variables)
 - [Troubleshooting](#troubleshooting)
 
@@ -123,6 +124,104 @@ docker-compose down
 - Uses `docker-compose.yml` for orchestration
 - Uses `.dockerignore` to exclude unnecessary files
 
+### Yandex Cloud
+
+**Prerequisites:**
+- Yandex Cloud account
+- Yandex Cloud CLI (optional for advanced deployment)
+
+**Deployment via Compute Cloud (Virtual Machine):**
+
+1. **Create a Virtual Machine:**
+   - Go to [Yandex Cloud Console](https://console.cloud.yandex.com/)
+   - Navigate to Compute Cloud → Virtual Machines
+   - Click "Create VM"
+   - Choose Ubuntu 22.04 LTS or later
+   - Select appropriate VM configuration (minimum 2 vCPU, 2 GB RAM recommended)
+   - Configure network settings and assign a public IP
+
+2. **Connect to your VM:**
+   ```bash
+   ssh <your-username>@<vm-public-ip>
+   ```
+
+3. **Install Node.js and npm:**
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+   ```
+
+4. **Clone and deploy Radius:**
+   ```bash
+   git clone https://github.com/RadiusProxy/Radius
+   cd Radius
+   npm install
+   npm run bstart
+   ```
+
+5. **Set up as a system service (optional):**
+   ```bash
+   sudo nano /etc/systemd/system/radius.service
+   ```
+   
+   Add the following content:
+   ```ini
+   [Unit]
+   Description=Radius Proxy Server
+   After=network.target
+
+   [Service]
+   Type=simple
+   User=<your-username>
+   WorkingDirectory=/home/<your-username>/Radius
+   ExecStart=/usr/bin/npm start
+   Restart=on-failure
+   Environment="PORT=8080"
+   Environment="NODE_ENV=production"
+
+   [Install]
+   WantedBy=multi-user.target
+   ```
+
+   Enable and start the service:
+   ```bash
+   sudo systemctl enable radius
+   sudo systemctl start radius
+   sudo systemctl status radius
+   ```
+
+**Deployment via Docker on Yandex Cloud:**
+
+1. Install Docker on your Yandex Cloud VM:
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y docker.io docker-compose
+   sudo systemctl start docker
+   sudo systemctl enable docker
+   sudo usermod -aG docker $USER
+   ```
+
+2. Clone and build:
+   ```bash
+   git clone https://github.com/RadiusProxy/Radius
+   cd Radius
+   docker-compose up -d
+   ```
+
+**Using Yandex Object Storage for Static Assets (Optional):**
+
+Radius can leverage Yandex Object Storage (S3-compatible) for serving static assets at scale:
+
+1. Create an Object Storage bucket in Yandex Cloud Console
+2. Configure bucket for public read access if needed
+3. Set up environment variables for S3-compatible storage access
+
+**Configuration for Yandex Cloud:**
+- Ensure firewall rules allow traffic on port 8080 (or your configured port)
+- Configure security groups to allow HTTP/HTTPS traffic
+- Consider using Yandex Application Load Balancer for SSL termination
+- Set up Yandex Cloud Monitoring for application health checks
+
 ## Environment Variables
 
 All platforms support the following environment variables:
@@ -181,6 +280,22 @@ app.listen({ port: port, host: "0.0.0.0" })
 **Docker:**
 - Ensure Docker daemon is running
 - Check container logs: `docker logs <container-id>`
+
+**Yandex Cloud:**
+- Check VM firewall rules allow traffic on configured port
+- Verify security group settings
+- Check Node.js version compatibility: `node --version`
+- Review application logs: `sudo journalctl -u radius -f`
+
+### CAPTCHA Issues
+
+**Issue:** reCAPTCHA, hCaptcha, or Yandex SmartCaptcha not loading
+**Solution:** 
+- Radius now includes enhanced support for reCAPTCHA v2/v3, hCaptcha, Cloudflare Turnstile, and Yandex SmartCaptcha
+- Ensure the proxy is properly configured and service workers are active
+- Check browser console for any CORS or loading errors
+- Verify that third-party cookies are not blocked in browser settings
+- For Yandex SmartCaptcha, ensure proper API keys are configured in the parent application
 
 ## Additional Resources
 
