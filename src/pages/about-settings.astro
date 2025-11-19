@@ -1,0 +1,48 @@
+---
+import Layout from "@layouts/Layout.astro";
+import { Icon } from "astro-icon/components";
+---
+
+<Layout>
+    <div class="h-full flex items-center justify-center font-inter">
+        <div class="flex flex-col items-center gap-6 p-6">
+            <div class="rounded-lg border border-(--border) bg-(--card) text-(--card-foreground) shadow-sm flex flex-col items-center justify-center p-8 max-w-2xl">
+                <div class="flex items-center gap-2 mb-4">
+                    <Icon name="lucide:settings-2" class="w-14 h-14 text-(--primary)" />
+                    <h1 class="text-3xl font-semibold">About: Settings</h1>
+                </div>
+                <div class="text-center mb-6">
+                    <p class="text-(--muted-foreground)">
+                        Configure Radius to match your preferences and needs
+                    </p>
+                </div>
+                <div class="flex flex-col gap-3 w-full text-sm mb-6">
+                    <p class="text-(--foreground)"><strong>Available Settings:</strong></p>
+                    <ul class="list-disc list-inside text-(--muted-foreground) space-y-2 ml-2">
+                        <li><strong>Proxy Switcher:</strong> Choose between Ultraviolet and Scramjet</li>
+                        <li><strong>Routing Mode:</strong> Select Wisp Server or Bare Server</li>
+                        <li><strong>Transport:</strong> Configure Libcurl or Epoxy transport</li>
+                        <li><strong>Search Engine:</strong> Customize your default search provider</li>
+                        <li><strong>Appearance:</strong> Personalize themes and visual settings</li>
+                        <li><strong>Cloaking:</strong> Customize tab title and favicon</li>
+                    </ul>
+                </div>
+                <div class="flex gap-3">
+                    <a href="/settings" class="bg-(--primary) h-10 rounded-lg text-sm font-medium px-4 py-2 text-(--primary-foreground) cursor-pointer inline-flex items-center justify-center hover:bg-(--primary)/90">
+                        Go to Settings
+                    </a>
+                    <a href="/" class="border border-(--border) h-10 rounded-lg text-sm font-medium px-4 py-2 text-(--foreground) cursor-pointer inline-flex items-center justify-center hover:bg-(--accent)">
+                        Go Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</Layout>
+
+<script>
+    // Break out of iframe if loaded within one
+    if (window.self !== window.top) {
+        window.top!.location.href = window.location.href;
+    }
+</script>
