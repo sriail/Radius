@@ -1,0 +1,72 @@
+---
+interface Props {
+    id: string;
+    label: string;
+    description?: string;
+}
+
+const { id, label, description } = Astro.props;
+---
+<div class="flex items-start justify-between py-3">
+    <div class="flex-grow pr-4">
+        <label for={id} class="text-sm font-medium cursor-pointer">
+            {label}
+        </label>
+        {description && (
+            <p class="text-xs text-(--muted-foreground) mt-1">
+                {description}
+            </p>
+        )}
+    </div>
+    <div class="flex-shrink-0">
+        <button 
+            type="button"
+            id={id}
+            role="switch"
+            aria-checked="false"
+            class="toggle-button relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-(--ring) focus:ring-offset-2 bg-(--secondary)"
+            data-state="off"
+        >
+            <span class="toggle-thumb inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform translate-x-0.5"></span>
+        </button>
+    </div>
+</div>
+
+<script>
+    // Toggle functionality will be initialized per instance
+    document.addEventListener('astro:page-load', () => {
+        const toggleButtons = document.querySelectorAll('.toggle-button');
+        
+        toggleButtons.forEach((button) => {
+            if (!(button as HTMLElement).dataset.initialized) {
+                (button as HTMLElement).dataset.initialized = 'true';
+                
+                button.addEventListener('click', () => {
+                    const isOn = button.getAttribute('data-state') === 'on';
+                    const newState = isOn ? 'off' : 'on';
+                    
+                    button.setAttribute('data-state', newState);
+                    button.setAttribute('aria-checked', String(!isOn));
+                    
+                    const thumb = button.querySelector('.toggle-thumb');
+                    if (newState === 'on') {
+                        button.classList.remove('bg-(--secondary)');
+                        button.classList.add('bg-(--primary)');
+                        thumb?.classList.remove('translate-x-0.5');
+                        thumb?.classList.add('translate-x-5.5');
+                    } else {
+                        button.classList.remove('bg-(--primary)');
+                        button.classList.add('bg-(--secondary)');
+                        thumb?.classList.remove('translate-x-5.5');
+                        thumb?.classList.add('translate-x-0.5');
+                    }
+                    
+                    // Dispatch custom event for state change
+                    button.dispatchEvent(new CustomEvent('toggle-change', { 
+                        detail: { state: newState, enabled: newState === 'on' }
+                    }));
+                });
+            }
+        });
+    });
+</script>

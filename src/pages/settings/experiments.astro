@@ -1,0 +1,87 @@
+---
+import SettingsLayout from "@layouts/SettingsLayout.astro";
+import Toggle from "@components/ui/Toggle.astro";
+---
+<SettingsLayout active="experiments" title="Experiments">
+    <div class="w-full flex-grow max-w-3xl">
+        <div class="mb-6 p-4 bg-(--accent) rounded-lg border border-(--border)">
+            <p class="text-sm text-(--muted-foreground)">
+                Experimental features are in development and may be unstable. Enable at your own risk.
+            </p>
+        </div>
+
+        <div class="space-y-1 divide-y divide-(--border)">
+            <Toggle 
+                id="automaticSwitching"
+                label="Automatic Switching"
+                description="Automatically switches to optimized configs for hard to load sites"
+            />
+            
+            <Toggle 
+                id="loadAssist"
+                label="Load Assist"
+                description="Checks for console errors and switches to a different config when the proxy is failing"
+            />
+        </div>
+    </div>
+</SettingsLayout>
+
+<script>
+    import { Settings } from "@utils/settings";
+    import { StoreManager } from "@utils/storage";
+
+    const initExperiments = async () => {
+        const storageManager = new StoreManager<"radius||settings">("radius||settings");
+        const settings = await Settings.getInstance();
+
+        // Initialize Automatic Switching
+        const automaticSwitching = document.getElementById("automaticSwitching") as HTMLElement;
+        if (automaticSwitching) {
+            const savedState = storageManager.getVal("automaticSwitching");
+            if (savedState === "true") {
+                automaticSwitching.setAttribute("data-state", "on");
+                automaticSwitching.setAttribute("aria-checked", "true");
+                automaticSwitching.classList.remove("bg-(--secondary)");
+                automaticSwitching.classList.add("bg-(--primary)");
+                const thumb = automaticSwitching.querySelector(".toggle-thumb");
+                thumb?.classList.remove("translate-x-0.5");
+                thumb?.classList.add("translate-x-5.5");
+            }
+
+            automaticSwitching.addEventListener("toggle-change", (e: Event) => {
+                const customEvent = e as CustomEvent;
+                const enabled = customEvent.detail.enabled;
+                settings.setAutomaticSwitching(enabled);
+            });
+        }
+
+        // Initialize Load Assist
+        const loadAssist = document.getElementById("loadAssist") as HTMLElement;
+        if (loadAssist) {
+            const savedState = storageManager.getVal("loadAssist");
+            if (savedState === "true") {
+                loadAssist.setAttribute("data-state", "on");
+                loadAssist.setAttribute("aria-checked", "true");
+                loadAssist.classList.remove("bg-(--secondary)");
+                loadAssist.classList.add("bg-(--primary)");
+                const thumb = loadAssist.querySelector(".toggle-thumb");
+                thumb?.classList.remove("translate-x-0.5");
+                thumb?.classList.add("translate-x-5.5");
+            }
+
+            loadAssist.addEventListener("toggle-change", (e: Event) => {
+                const customEvent = e as CustomEvent;
+                const enabled = customEvent.detail.enabled;
+                settings.setLoadAssist(enabled);
+            });
+        }
+    };
+
+    document.addEventListener("astro:page-load", async () => {
+        try {
+            await initExperiments();
+        } catch (err) {
+            console.error("Error initializing experiments:", err);
+        }
+    });
+</script>
