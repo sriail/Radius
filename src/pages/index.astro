@@ -63,8 +63,30 @@ const link = Astro.url.searchParams.get("redir");
         const sw = SW.getInstance().next().value!;
         await sw.ready();
         
+        // Function to handle about: URLs
+        const handleAboutURL = (value: string): boolean => {
+            const aboutMatch = value.match(/^about:(home|settings|404)$/i);
+            if (aboutMatch) {
+                const page = aboutMatch[1].toLowerCase();
+                if (page === 'home') {
+                    window.location.href = '/about-home';
+                } else if (page === 'settings') {
+                    window.location.href = '/about-settings';
+                } else if (page === '404') {
+                    window.location.href = '/about-404';
+                }
+                return true;
+            }
+            return false;
+        };
+        
         input.addEventListener("keypress", async (event: any) => {
             if (event.key === "Enter") {
+                // Check if it's an about: URL first
+                if (handleAboutURL(input.value)) {
+                    return;
+                }
+                
                 const settings = await Settings.getInstance();
                 iframe.classList.remove("hidden");
                 iframe.src = sw.encodeURL(input.value); 

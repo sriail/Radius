@@ -1,5 +1,6 @@
 ---
 import { Icon } from "astro-icon/components";
+import UpperSearchBar from "@components/UpperSearchBar.astro";
 const path = Astro.url.pathname;
 ---
 <div class="h-14 fixed bg-(--background) border-b border-b-(--border) px-4 w-full z-10 flex items-center font-inter">
@@ -11,12 +12,15 @@ const path = Astro.url.pathname;
             <Icon name="lucide:radius" class="w-8 h-8 rotate-180 text-(--foreground)" />
             <h1 class="text-xl font-bold text-(--foreground)"> Radius </h1>
         </a>
-        <div id="phl" class="flex items-center w-full justify-between hidden">
-            <div class="flex items-center gap-2 w-1/2">
+        <div id="phl" class="flex items-center w-full gap-3 hidden">
+            <div class="flex items-center gap-2 shrink-0">
                 <img id="phlImage" src="" class="w-8 h-8 text-(--foreground) rounded-2xl" />
-                <h1 id="phlTitle" class="hidden md:block text-xl font-bold text-(--foreground) whitespace-nowrap overflow-hidden text-ellipsis w-full"> Radius </h1>
+                <h1 id="phlTitle" class="hidden md:block text-lg font-bold text-(--foreground) whitespace-nowrap"> Radius </h1>
             </div>
-            <div class="flex items-center gap-2 flex-grow justify-end text-(--foreground) md:mr-4">
+            <div class="flex items-center gap-2 flex-grow justify-center px-2">
+                <UpperSearchBar />
+            </div>
+            <div class="flex items-center gap-2 shrink-0 text-(--foreground)">
                 <button id="pal" class="font-medium rounded-lg h-10 w-10 hover:bg-(--accent) inline-flex items-center justify-center transition-colors cursor-pointer">
                     <Icon name="lucide:arrow-left" class="h-6 w-6" />
                 </button>

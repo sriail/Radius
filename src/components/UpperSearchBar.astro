@@ -1,0 +1,113 @@
+---
+import { Icon } from "astro-icon/components";
+---
+<div class="flex flex-row items-center gap-2 w-full max-w-2xl border border-(--input) rounded-lg h-10 p-2 bg-(--background)">
+    <Icon name="lucide:search" class="text-(--muted-foreground)" />
+    <input 
+        id="upper-search-input" 
+        type="text" 
+        name="UpperSearch" 
+        class="text-sm focus-visible:outline-none w-full h-full placeholder:text-(--muted-foreground) bg-transparent" 
+        placeholder="Search the web or type about:home, about:settings, about:404"
+    />
+</div>
+
+<script>
+    import { SW } from "@utils/proxy.ts";
+
+    const init = async () => {
+        const upperInput = document.getElementById("upper-search-input") as HTMLInputElement;
+        const iframe = document.getElementById("iframe") as HTMLIFrameElement;
+        const iframeWin = iframe?.contentWindow;
+        const bhl = document.getElementById("bhl") as HTMLDivElement;
+        const phl = document.getElementById("phl") as HTMLDivElement;
+        const phlImage = document.getElementById("phlImage") as HTMLImageElement;
+        const phlTitle = document.getElementById("phlTitle") as HTMLDivElement;
+
+        if (!iframe) return;
+
+        // Get SW instance and wait for it to be ready
+        const sw = SW.getInstance().next().value!;
+        await sw.ready();
+
+        // Function to handle about: URLs
+        const handleAboutURL = (value: string): boolean => {
+            const aboutMatch = value.match(/^about:(home|settings|404)$/i);
+            if (aboutMatch) {
+                const page = aboutMatch[1].toLowerCase();
+                if (page === 'home') {
+                    window.location.href = '/about-home';
+                } else if (page === 'settings') {
+                    window.location.href = '/about-settings';
+                } else if (page === '404') {
+                    window.location.href = '/about-404';
+                }
+                return true;
+            }
+            return false;
+        };
+
+        // Function to get current URL from iframe
+        const getURL = async (): Promise<string> => {
+            if (iframeWin!.__uv) {
+                return iframeWin!.__uv.location.href
+            }
+            else if (iframeWin!.$scramjet?.config?.prefix) {
+                return iframeWin!.location.href
+                    .replace(iframeWin!.location.origin, '')
+                    .replace(iframeWin!.$scramjet.config.prefix, '')
+            }
+            else {
+                return iframeWin!.location.href;
+            }
+        };
+
+        // Update the upper search bar with current URL
+        const updateUpperSearchBar = async () => {
+            try {
+                const currentURL = await getURL();
+                upperInput.value = currentURL;
+            } catch (e) {
+                // Ignore errors
+            }
+        };
+
+        // Listen for Enter key press
+        upperInput.addEventListener("keypress", async (event: any) => {
+            if (event.key === "Enter") {
+                // Check if it's an about: URL first
+                if (handleAboutURL(upperInput.value)) {
+                    return;
+                }
+
+                // Otherwise, navigate normally
+                iframe.classList.remove("hidden");
+                iframe.src = sw.encodeURL(upperInput.value);
+                
+                // Show proxy header layout
+                if (bhl && phl) {
+                    bhl.classList.add("hidden");
+                    phl.classList.remove("hidden");
+                }
+            }
+        });
+
+        // Update URL display when iframe loads
+        if (iframe) {
+            iframe.addEventListener("load", async () => {
+                await updateUpperSearchBar();
+            });
+        }
+
+        // Initial update if iframe is already loaded
+        if (iframe && !iframe.classList.contains("hidden")) {
+            await updateUpperSearchBar();
+        }
+    };
+
+    document.addEventListener("astro:page-load", async () => {
+        try {
+            await init();
+        } catch (_) {}
+    });
+</script>
