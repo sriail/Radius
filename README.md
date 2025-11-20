@@ -118,9 +118,18 @@ services:
 All platforms support the following environment variables:
 - `PORT` - The port number to run the server on (default: 8080)
 
+### Performance and Compatibility Features
+Radius has been optimized for websites with heavy cookies, service workers, and complex browser services:
+- **Enhanced Cookie Support**: 32KB header size limit for sites with extensive cookies
+- **Improved Connection Stability**: Keep-alive and extended timeouts (120s)
+- **Better Error Handling**: Comprehensive error recovery and logging
+- **Optimized for Complex Sites**: Support for Amazon, Google, Facebook, Netflix, and more
+
+For detailed information, see [IMPROVEMENTS.md](IMPROVEMENTS.md)
+
 ### Bare Server Connection Limiter
 These variables control the rate limiting for the Bare server to prevent abuse while allowing normal browsing (optional but recomended) can be ajusted based on security prefrences and expected usage:
-- `BARE_MAX_CONNECTIONS_PER_IP` - Maximum number of concurrent keep-alive connections per IP address (default: 100)
+- `BARE_MAX_CONNECTIONS_PER_IP` - Maximum number of concurrent keep-alive connections per IP address (default: 1000)
 - `BARE_WINDOW_DURATION` - Time window in seconds for counting connections (default: 60)
 - `BARE_BLOCK_DURATION` - Duration in seconds to block an IP after exceeding the limit (default: 30)
 
