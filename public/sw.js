@@ -18,7 +18,9 @@ const CAPTCHA_DOMAINS = [
     "newassets.hcaptcha.com",
     "challenges.cloudflare.com",
     "cloudflare.com/cdn-cgi/challenge",
-    "turnstile.cloudflare.com"
+    "turnstile.cloudflare.com",
+    "cdn-cgi",
+    "cf-assets"
 ];
 
 // Helper function to check if URL is CAPTCHA-related
@@ -37,11 +39,18 @@ function enhanceCaptchaRequest(request) {
         headers.set("Accept", "*/*");
     }
 
-    // Preserve credentials for CAPTCHA cookies
+    // Ensure critical headers are preserved
+    if (request.referrer && !headers.has("Referer")) {
+        headers.set("Referer", request.referrer);
+    }
+
+    // Preserve credentials for CAPTCHA cookies - don't change mode as it can break cookies
     return new Request(request, {
         headers: headers,
         credentials: "include",
-        mode: request.mode === "navigate" ? "same-origin" : request.mode
+        mode: request.mode,
+        cache: request.cache,
+        redirect: request.redirect
     });
 }
 
@@ -57,11 +66,24 @@ self.addEventListener("fetch", function (event) {
             let request = event.request;
             if (isCaptcha) {
                 request = enhanceCaptchaRequest(event.request);
+                console.debug("[CAPTCHA] Enhanced request for:", url);
             }
 
             if (url.startsWith(location.origin + __uv$config.prefix)) {
+                // For proxied CAPTCHA requests through UV, create a modified event
+                if (isCaptcha) {
+                    const modifiedEvent = Object.create(event);
+                    modifiedEvent.request = request;
+                    return await uv.fetch(modifiedEvent);
+                }
                 return await uv.fetch(event);
             } else if (sj.route(event)) {
+                // For proxied CAPTCHA requests through Scramjet, create a modified event
+                if (isCaptcha) {
+                    const modifiedEvent = Object.create(event);
+                    modifiedEvent.request = request;
+                    return await sj.fetch(modifiedEvent);
+                }
                 return await sj.fetch(event);
             } else {
                 return await fetch(request);
