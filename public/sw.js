@@ -18,7 +18,9 @@ const CAPTCHA_DOMAINS = [
     "newassets.hcaptcha.com",
     "challenges.cloudflare.com",
     "cloudflare.com/cdn-cgi/challenge",
-    "turnstile.cloudflare.com"
+    "turnstile.cloudflare.com",
+    "cdn-cgi",
+    "cf-assets"
 ];
 
 // Helper function to check if URL is CAPTCHA-related
@@ -37,11 +39,18 @@ function enhanceCaptchaRequest(request) {
         headers.set("Accept", "*/*");
     }
 
-    // Preserve credentials for CAPTCHA cookies
+    // Ensure critical headers are preserved
+    if (request.referrer && !headers.has("Referer")) {
+        headers.set("Referer", request.referrer);
+    }
+
+    // Preserve credentials for CAPTCHA cookies - don't change mode as it can break cookies
     return new Request(request, {
         headers: headers,
         credentials: "include",
-        mode: request.mode === "navigate" ? "same-origin" : request.mode
+        mode: request.mode,
+        cache: request.cache,
+        redirect: request.redirect
     });
 }
 

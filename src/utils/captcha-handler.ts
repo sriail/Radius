@@ -13,7 +13,10 @@ const CAPTCHA_DOMAINS = [
     "gstatic.com",
     "hcaptcha.com",
     "cloudflare.com",
-    "challenges.cloudflare.com"
+    "challenges.cloudflare.com",
+    "cdn-cgi",
+    "cf-assets",
+    "turnstile"
 ];
 
 /**
@@ -78,22 +81,33 @@ function enhanceCookieHandling() {
     // Store original cookie descriptor
     const originalCookieDescriptor = Object.getOwnPropertyDescriptor(Document.prototype, "cookie");
 
-    if (originalCookieDescriptor) {
-        Object.defineProperty(document, "cookie", {
-            get() {
-                return originalCookieDescriptor.get?.call(this) || "";
-            },
-            set(value) {
-                // Ensure SameSite=None for CAPTCHA cookies in cross-origin iframes
-                if (typeof value === "string" && value.includes("_GRECAPTCHA")) {
-                    if (!value.includes("SameSite")) {
-                        value += "; SameSite=None; Secure";
+    if (originalCookieDescriptor && originalCookieDescriptor.configurable) {
+        try {
+            Object.defineProperty(document, "cookie", {
+                get() {
+                    return originalCookieDescriptor.get?.call(this) || "";
+                },
+                set(value) {
+                    // Ensure SameSite=None for CAPTCHA cookies in cross-origin iframes
+                    if (typeof value === "string") {
+                        // Handle various CAPTCHA-related cookies
+                        const isCaptchaCookie = value.includes("_GRECAPTCHA") || 
+                                                value.includes("_hcaptcha") || 
+                                                value.includes("cf_clearance") ||
+                                                value.includes("__cf_bm");
+                        
+                        if (isCaptchaCookie && !value.includes("SameSite")) {
+                            // Add SameSite=None and Secure for cross-origin cookies
+                            value += "; SameSite=None; Secure";
+                        }
                     }
-                }
-                originalCookieDescriptor.set?.call(this, value);
-            },
-            configurable: true
-        });
+                    originalCookieDescriptor.set?.call(this, value);
+                },
+                configurable: true
+            });
+        } catch (error) {
+            console.warn("Failed to enhance cookie handling:", error);
+        }
     }
 }
 
@@ -119,7 +133,7 @@ function enhanceNetworkRequests() {
         if (isCaptchaRequest) {
             // Ensure credentials are included
             init = init || {};
-            if (!init.credentials) {
+            if (!init.credentials || init.credentials === "omit") {
                 init.credentials = "include";
             }
 
@@ -127,6 +141,11 @@ function enhanceNetworkRequests() {
             init.headers = new Headers(init.headers);
             if (!init.headers.has("Accept")) {
                 init.headers.set("Accept", "*/*");
+            }
+            
+            // Don't override cache mode for CAPTCHA requests
+            if (!init.cache) {
+                init.cache = "default";
             }
         }
 
@@ -142,7 +161,9 @@ function enhanceNetworkRequests() {
 
         // Store original open method
         const originalOpen = xhr.open;
-        xhr.open = function (method: string, url: string | URL, ...args: any[]) {
+        const originalSend = xhr.send;
+        
+        xhr.open = function (method: string, url: string | URL, async?: boolean, username?: string | null, password?: string | null) {
             const urlStr = url.toString();
             const isCaptchaRequest = CAPTCHA_DOMAINS.some((domain) => urlStr.includes(domain));
 
@@ -151,7 +172,21 @@ function enhanceNetworkRequests() {
                 xhr.withCredentials = true;
             }
 
-            return originalOpen.call(this, method, url, ...args);
+            if (async !== undefined) {
+                if (username !== undefined) {
+                    if (password !== undefined) {
+                        return originalOpen.call(this, method, url, async, username, password);
+                    }
+                    return originalOpen.call(this, method, url, async, username);
+                }
+                return originalOpen.call(this, method, url, async);
+            }
+            return originalOpen.call(this, method, url);
+        };
+        
+        // Ensure headers are properly set
+        xhr.send = function (body?: Document | XMLHttpRequestBodyInit | null) {
+            return originalSend.call(this, body);
         };
 
         return xhr;
