@@ -63,11 +63,33 @@ const link = Astro.url.searchParams.get("redir");
         const sw = SW.getInstance().next().value!;
         await sw.ready();
         
+        // Function to handle about: URLs
+        const handleAboutUrl = (url: string): string | null => {
+            const lowerUrl = url.toLowerCase().trim();
+            if (lowerUrl === "about:settings") {
+                return "/settings";
+            } else if (lowerUrl === "about:home") {
+                return "/";
+            } else if (lowerUrl === "about:404") {
+                return "/404";
+            }
+            return null;
+        };
+
         input.addEventListener("keypress", async (event: any) => {
             if (event.key === "Enter") {
+                const inputValue = input.value.trim();
+                
+                // Check for about: URLs first
+                const aboutUrl = handleAboutUrl(inputValue);
+                if (aboutUrl) {
+                    window.location.href = aboutUrl;
+                    return;
+                }
+
                 const settings = await Settings.getInstance();
                 iframe.classList.remove("hidden");
-                iframe.src = sw.encodeURL(input.value); 
+                iframe.src = sw.encodeURL(inputValue); 
                 buttons();
             }
         });
@@ -111,6 +133,12 @@ const link = Astro.url.searchParams.get("redir");
             phlImage.src = object;
             bhl.classList.add("hidden");
             phl.classList.remove("hidden");
+            
+            // Update upper search bar with the current URL
+            const upperSearchInput = document.getElementById("upperSearchInput") as HTMLInputElement;
+            if (upperSearchInput) {
+                upperSearchInput.value = pageURL;
+            }
         }); 
     }
 

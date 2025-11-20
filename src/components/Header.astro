@@ -1,5 +1,6 @@
 ---
 import { Icon } from "astro-icon/components";
+import UpperSearchBar from "@components/ui/UpperSearchBar.astro";
 const path = Astro.url.pathname;
 ---
 <div class="h-14 fixed bg-(--background) border-b border-b-(--border) px-4 w-full z-10 flex items-center font-inter">
@@ -7,7 +8,7 @@ const path = Astro.url.pathname;
         <button id="menu" class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-(--offset-background) h-10 w-10 hover:bg-(--accent)">
             <Icon name="lucide:menu" class="text-(--foreground) h-7 w-7" />
         </button>
-        <a id="bhl" class="flex items-center gap-2 w-full" href="/">
+        <a id="bhl" class="flex items-center gap-2" href="/">
             <Icon name="lucide:radius" class="w-8 h-8 rotate-180 text-(--foreground)" />
             <h1 class="text-xl font-bold text-(--foreground)"> Radius </h1>
         </a>
@@ -32,6 +33,7 @@ const path = Astro.url.pathname;
                 </button> */}
             </div>
         </div>
+        <UpperSearchBar />
     </div>
     <div>
     </div>
