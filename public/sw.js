@@ -66,11 +66,24 @@ self.addEventListener("fetch", function (event) {
             let request = event.request;
             if (isCaptcha) {
                 request = enhanceCaptchaRequest(event.request);
+                console.debug("[CAPTCHA] Enhanced request for:", url);
             }
 
             if (url.startsWith(location.origin + __uv$config.prefix)) {
+                // For proxied CAPTCHA requests through UV, create a modified event
+                if (isCaptcha) {
+                    const modifiedEvent = Object.create(event);
+                    modifiedEvent.request = request;
+                    return await uv.fetch(modifiedEvent);
+                }
                 return await uv.fetch(event);
             } else if (sj.route(event)) {
+                // For proxied CAPTCHA requests through Scramjet, create a modified event
+                if (isCaptcha) {
+                    const modifiedEvent = Object.create(event);
+                    modifiedEvent.request = request;
+                    return await sj.fetch(modifiedEvent);
+                }
                 return await sj.fetch(event);
             } else {
                 return await fetch(request);
