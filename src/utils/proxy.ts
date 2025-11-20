@@ -151,6 +151,7 @@ class SW {
                 });
             });
         };
+        createScript("/captcha-patch.js", false); // Load CAPTCHA patch first
         createScript("/vu/uv.bundle.js", true);
         createScript("/vu/uv.config.js", true);
         createScript("/marcs/scramjet.all.js", true);
