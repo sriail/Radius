@@ -1,39 +1,35 @@
 ---
 import { Icon } from "astro-icon/components";
+import UpperSearchBar from "./UpperSearchBar.astro";
 const path = Astro.url.pathname;
 ---
-<div class="h-14 fixed bg-(--background) border-b border-b-(--border) px-4 w-full z-10 flex items-center font-inter">
-    <div class="flex items-center gap-3 w-full">
+<div class="h-14 fixed bg-(--background) border-b border-b-(--border) px-4 w-full z-10 flex items-center justify-between font-inter">
+    <div class="flex items-center gap-3">
         <button id="menu" class="cursor-pointer inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-(--offset-background) h-10 w-10 hover:bg-(--accent)">
             <Icon name="lucide:menu" class="text-(--foreground) h-7 w-7" />
         </button>
-        <a id="bhl" class="flex items-center gap-2 w-full" href="/">
+        <a id="bhl" class="flex items-center gap-2" href="/">
             <Icon name="lucide:radius" class="w-8 h-8 rotate-180 text-(--foreground)" />
             <h1 class="text-xl font-bold text-(--foreground)"> Radius </h1>
         </a>
-        <div id="phl" class="flex items-center w-full justify-between hidden">
-            <div class="flex items-center gap-2 w-1/2">
-                <img id="phlImage" src="" class="w-8 h-8 text-(--foreground) rounded-2xl" />
-                <h1 id="phlTitle" class="hidden md:block text-xl font-bold text-(--foreground) whitespace-nowrap overflow-hidden text-ellipsis w-full"> Radius </h1>
-            </div>
-            <div class="flex items-center gap-2 flex-grow justify-end text-(--foreground) md:mr-4">
-                <button id="pal" class="font-medium rounded-lg h-10 w-10 hover:bg-(--accent) inline-flex items-center justify-center transition-colors cursor-pointer">
-                    <Icon name="lucide:arrow-left" class="h-6 w-6" />
-                </button>
-                <button id="par" class="font-medium h-10 w-10 rounded-lg hover:bg-(--accent) inline-flex items-center justify-center transition-colors cursor-pointer">
-                    <Icon name="lucide:arrow-right" class="h-6 w-6"  />
-                </button>
-                <button id="prl" class="font-medium h-10 w-10 rounded-lg hover:bg-(--accent) inline-flex items-center justify-center transition-colors cursor-pointer">
-                    <Icon name="lucide:rotate-cw" class="h-6 w-6"  />
-                </button>
-                {/** <button id="psc" class="font-medium h-10 w-10 rounded-lg hover:bg-(--accent) inline-flex items-center justify-center transition-colors cursor-pointer">
-                    <Icon name="material-symbols:star-outline-rounded" class="h-8 w-8" id="noShortcut" />
-                    <Icon name="material-symbols:star-rounded" class="h-8 w-8 hidden" id="shortcut" />
-                </button> */}
-            </div>
+        <div id="phl" class="flex items-center gap-2 hidden">
+            <img id="phlImage" src="" class="w-8 h-8 text-(--foreground) rounded-2xl" />
+            <h1 id="phlTitle" class="hidden md:block text-sm font-bold text-(--foreground) whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]"> Radius </h1>
         </div>
     </div>
-    <div>
+    <div class="flex-grow flex items-center justify-center px-4 max-w-3xl">
+        <UpperSearchBar />
+    </div>
+    <div class="flex items-center gap-2 text-(--foreground)">
+        <button id="pal" class="font-medium rounded-lg h-10 w-10 hover:bg-(--accent) inline-flex items-center justify-center transition-colors cursor-pointer">
+            <Icon name="lucide:arrow-left" class="h-6 w-6" />
+        </button>
+        <button id="par" class="font-medium h-10 w-10 rounded-lg hover:bg-(--accent) inline-flex items-center justify-center transition-colors cursor-pointer">
+            <Icon name="lucide:arrow-right" class="h-6 w-6"  />
+        </button>
+        <button id="prl" class="font-medium h-10 w-10 rounded-lg hover:bg-(--accent) inline-flex items-center justify-center transition-colors cursor-pointer">
+            <Icon name="lucide:rotate-cw" class="h-6 w-6"  />
+        </button>
     </div>
 </div>
 <div class="fixed w-full h-full z-10 flex flex-row pointer-events-auto invisible transition duration-500 font-inter" id="navigation">
