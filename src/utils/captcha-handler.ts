@@ -210,27 +210,10 @@ function enhanceNetworkRequests() {
  * Enhance storage persistence for better cookie and session support
  */
 function enhanceStoragePersistence() {
-    // Request persistent storage for better data retention
+    // Request persistent storage for better data retention (silently)
     if (navigator.storage && navigator.storage.persist) {
-        navigator.storage
-            .persist()
-            .then((persistent) => {
-                if (persistent) {
-                    console.log("Persistent storage granted for better session support");
-                } else {
-                    console.log("Persistent storage not granted - session data may be cleared");
-                }
-            })
-            .catch((error) => {
-                console.warn("Error requesting persistent storage:", error);
-            });
-    }
-
-    // Estimate storage quota to ensure we have enough space for cookies
-    if (navigator.storage && navigator.storage.estimate) {
-        navigator.storage.estimate().then((estimate) => {
-            const percentUsed = ((estimate.usage || 0) / (estimate.quota || 1)) * 100;
-            console.log(`Storage usage: ${percentUsed.toFixed(2)}%`);
+        navigator.storage.persist().catch(() => {
+            // Silently fail - not critical for functionality
         });
     }
 }

@@ -44,7 +44,9 @@ const HEAVY_COOKIE_DOMAINS = [
     "twitter.com",
     "linkedin.com",
     "microsoft.com",
-    "apple.com"
+    "apple.com",
+    "netflix.com",
+    "spotify.com"
 ];
 
 // Helper function to check if URL is CAPTCHA-related
@@ -134,7 +136,6 @@ self.addEventListener("activate", function (event) {
             try {
                 // Claim all clients to ensure the service worker takes control immediately
                 await self.clients.claim();
-                console.log("Service worker activated and claimed all clients");
             } catch (error) {
                 console.error("Service worker activation error:", error);
             }
@@ -146,5 +147,4 @@ self.addEventListener("activate", function (event) {
 self.addEventListener("install", function (event) {
     // Skip waiting to activate immediately
     self.skipWaiting();
-    console.log("Service worker installed");
 });
