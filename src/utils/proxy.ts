@@ -182,7 +182,7 @@ class SW {
                 }
             });
             if ("serviceWorker" in navigator) {
-                await this.#scramjetController.init();
+                await this.#scramjetController!.init();
                 navigator.serviceWorker.ready.then(async (reg) => {
                     console.log("SW ready to go!");
                     this.#serviceWorker = reg;

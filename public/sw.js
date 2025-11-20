@@ -18,7 +18,10 @@ const CAPTCHA_DOMAINS = [
     "newassets.hcaptcha.com",
     "challenges.cloudflare.com",
     "cloudflare.com/cdn-cgi/challenge",
-    "turnstile.cloudflare.com"
+    "turnstile.cloudflare.com",
+    "yandex.com/captcha",
+    "yandex.ru/captcha",
+    "smartcaptcha.yandexcloud.net"
 ];
 
 // Helper function to check if URL is CAPTCHA-related
