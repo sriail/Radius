@@ -71,43 +71,58 @@ import { Icon } from "astro-icon/components";
                     // Get the actual URL from the proxy
                     if (iframeWin.__uv) {
                         pageURL = iframeWin.__uv.location.href;
-                    } else if (iframeWin.$scramjet?.config?.prefix) {
-                        const scramjetURL = iframeWin.location.href;
-                        pageURL = scramjetURL
-                            .replace(iframeWin.location.origin, '')
-                            .replace(iframeWin.$scramjet.config.prefix, '');
-                    } else {
-                        pageURL = iframeWin.location.href;
+                        upperSearchInput.value = pageURL;
+                        return;
+                    } else if (iframeWin.$scramjet?.url) {
+                        // Use scramjet's URL property which contains the decoded URL
+                        pageURL = iframeWin.$scramjet.url.href;
+                        upperSearchInput.value = pageURL;
+                        return;
                     }
-                    upperSearchInput.value = pageURL;
+                    // If proxy objects not available, fall through to decode from src
                 }
             } catch (e) {
-                // Cross-origin error - try to get URL from iframe src
-                try {
-                    const iframeSrc = iframe.src;
-                    if (iframeSrc) {
-                        // Decode URL from proxy prefix
-                        if (iframeSrc.includes('/~/uv/')) {
-                            // Extract and decode UV URL
-                            const encoded = iframeSrc.split('/~/uv/')[1];
-                            if (encoded && typeof __uv$config !== 'undefined') {
-                                try {
-                                    const decoded = __uv$config.decodeUrl!(encoded);
-                                    upperSearchInput.value = decoded;
-                                } catch {
-                                    upperSearchInput.value = iframeSrc;
-                                }
+                // Cross-origin error - will decode from iframe src below
+            }
+            
+            // Decode URL from iframe src (for both cross-origin and when proxy objects not available)
+            try {
+                const iframeSrc = iframe.src;
+                if (iframeSrc) {
+                    // Decode URL from proxy prefix
+                    if (iframeSrc.includes('/~/uv/')) {
+                        // Extract and decode UV URL
+                        const encoded = iframeSrc.split('/~/uv/')[1];
+                        if (encoded && typeof __uv$config !== 'undefined') {
+                            try {
+                                const decoded = __uv$config.decodeUrl!(encoded);
+                                upperSearchInput.value = decoded;
+                            } catch {
+                                upperSearchInput.value = iframeSrc;
                             }
-                        } else if (iframeSrc.includes('/~/scramjet/')) {
-                            const encoded = iframeSrc.split('/~/scramjet/')[1];
-                            upperSearchInput.value = encoded || iframeSrc;
-                        } else {
-                            upperSearchInput.value = iframeSrc;
                         }
+                    } else if (iframeSrc.includes('/~/scramjet/')) {
+                        // Extract and decode Scramjet URL
+                        const encoded = iframeSrc.split('/~/scramjet/')[1];
+                        if (encoded && typeof $scramjetLoadController !== 'undefined') {
+                            try {
+                                const { ScramjetController } = $scramjetLoadController();
+                                // Create a temporary controller instance to decode
+                                const tempController = new ScramjetController({ prefix: '/~/scramjet/' });
+                                const decoded = tempController.decodeUrl(encoded);
+                                upperSearchInput.value = decoded;
+                            } catch {
+                                upperSearchInput.value = encoded;
+                            }
+                        } else {
+                            upperSearchInput.value = encoded || iframeSrc;
+                        }
+                    } else {
+                        upperSearchInput.value = iframeSrc;
                     }
-                } catch {
-                    // Fallback - just leave the current value
                 }
+            } catch {
+                // Fallback - just leave the current value
             }
         };
 
@@ -121,13 +136,17 @@ import { Icon } from "astro-icon/components";
                     return;
                 }
 
-                // Regular URL handling - only if iframe exists
+                // Regular URL handling
+                // If we're on the main page with iframe, use it
                 if (iframe && bhl && phl) {
                     iframe.classList.remove("hidden");
                     await sw.ready();
                     iframe.src = sw.encodeURL(inputValue);
                     bhl.classList.add("hidden");
                     phl.classList.remove("hidden");
+                } else {
+                    // Otherwise, navigate to home page with the search query
+                    window.location.href = '/?redir=' + btoa(inputValue);
                 }
             }
         });

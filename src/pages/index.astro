@@ -94,10 +94,9 @@ const link = Astro.url.searchParams.get("redir");
             if (iframeWin!.__uv) {
                 return iframeWin!.__uv.location.href
             }
-            else if (iframeWin!.$scramjet?.config?.prefix) {
-                return iframeWin!.location.href
-                    .replace(iframeWin!.location.origin, '')
-                    .replace(iframeWin!.$scramjet.config.prefix, '')
+            else if (iframeWin!.$scramjet?.url) {
+                // Use scramjet's URL property which contains the decoded URL
+                return iframeWin!.$scramjet.url.href
             }
             else {
                 // Fallback if neither proxy is available
