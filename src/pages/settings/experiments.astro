@@ -1,0 +1,65 @@
+---
+import SettingsLayout from "@layouts/SettingsLayout.astro";
+import Dropdown from "@components/ui/Dropdown.astro";
+---
+<SettingsLayout active="experiments" title="Experiments">
+    <div class="w-full flex-grow">
+        <div class="mb-6">
+            <p class="text-sm text-(--muted-foreground)">
+                These are experimental features that may improve browsing but could be unstable.
+            </p>
+        </div>
+        <div>
+            <p> Automatic Switching </p>
+            <p class="text-xs text-(--muted-foreground) mb-2">Automatically switches to optimized configs for hard to load sites</p>
+            <Dropdown id="autoSwitching" options={
+                [
+                    { name: 'Enabled', value: 'enabled' },
+                    { name: 'Disabled', value: 'disabled', default: true }
+                ]
+            } />
+        </div>
+        <div class="mt-4">
+            <p> Load Assist </p>
+            <p class="text-xs text-(--muted-foreground) mb-2">Checks for console errors and switches to a different config when the proxy fails</p>
+            <Dropdown id="loadAssist" options={
+                [
+                    { name: 'Enabled', value: 'enabled' },
+                    { name: 'Disabled', value: 'disabled', default: true }
+                ]
+            } />
+        </div>
+    </div>
+</SettingsLayout>
+
+<script>
+    import { Settings } from "@utils/settings";
+    import { StoreManager } from "@utils/storage";
+
+    const autoSwitching = async (storageManager: StoreManager<"radius||settings">) => {
+        const dropdown = document.getElementById("dropdownBox-autoSwitching") as HTMLSelectElement;
+        dropdown.value = storageManager.getVal('autoSwitching') || 'disabled';
+        dropdown.addEventListener("change", async () => {
+            storageManager.setVal('autoSwitching', dropdown.value);
+        });
+    };
+
+    const loadAssist = async (storageManager: StoreManager<"radius||settings">) => {
+        const dropdown = document.getElementById("dropdownBox-loadAssist") as HTMLSelectElement;
+        dropdown.value = storageManager.getVal('loadAssist') || 'disabled';
+        dropdown.addEventListener("change", async () => {
+            storageManager.setVal('loadAssist', dropdown.value);
+        });
+    };
+
+    document.addEventListener("astro:page-load", async () => {
+        try {
+            const settings = await Settings.getInstance();
+            const storageManager = new StoreManager<"radius||settings">("radius||settings");
+            await autoSwitching(storageManager);
+            await loadAssist(storageManager);
+        } catch (err) {
+            console.log(err);
+        };
+    });
+</script>
