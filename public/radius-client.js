@@ -27,12 +27,13 @@
     window.open = function(url, target, features) {
         try {
             // Notify parent to navigate to the URL
+            // Using window.location.origin as target origin for security
             window.parent.postMessage({
                 type: 'radius-open-url',
                 url: url || 'about:blank',
                 target: target,
                 features: features
-            }, '*');
+            }, window.location.origin);
             
             // Return a fake window object to satisfy callers
             const fakeWindow = {
@@ -92,7 +93,7 @@
                         type: 'radius-open-url',
                         url: href,
                         target: target
-                    }, '*');
+                    }, window.location.origin);
                 } catch (e) {
                     console.warn('Radius: Failed to send message to parent:', e);
                     // Fallback: navigate in current window
@@ -116,21 +117,23 @@
                 event.stopPropagation();
                 event.stopImmediatePropagation();
                 
-                const action = form.action;
-                const method = form.method.toUpperCase() || 'GET';
+                // Resolve action to absolute URL
+                const action = form.action || window.location.href;
+                const method = (form.method || 'GET').toUpperCase();
                 
                 if (method === 'GET') {
                     // For GET, build URL with form data
                     const formData = new FormData(form);
                     const params = new URLSearchParams(formData);
-                    const fullUrl = action + (action.includes('?') ? '&' : '?') + params.toString();
+                    const separator = action.includes('?') ? '&' : '?';
+                    const fullUrl = action + separator + params.toString();
                     
                     try {
                         window.parent.postMessage({
                             type: 'radius-open-url',
                             url: fullUrl,
                             target: target
-                        }, '*');
+                        }, window.location.origin);
                     } catch (e) {
                         console.warn('Radius: Failed to send form data to parent:', e);
                         window.location.href = fullUrl;
@@ -143,7 +146,7 @@
                             type: 'radius-open-url',
                             url: action,
                             target: target
-                        }, '*');
+                        }, window.location.origin);
                     } catch (e) {
                         console.warn('Radius: Failed to send form action to parent:', e);
                         window.location.href = action;

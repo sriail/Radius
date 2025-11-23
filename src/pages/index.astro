@@ -133,19 +133,32 @@ const link = Astro.url.searchParams.get("redir");
             // Inject tab interceptor into the iframe
             // This works because proxied content is same-origin
             try {
-                const script = iframeWin!.document.createElement('script');
-                script.src = '/radius-client.js';
-                script.async = false; // Load synchronously to ensure it runs early
-                (iframeWin!.document.head || iframeWin!.document.documentElement).appendChild(script);
+                // Security: Only inject if iframe origin matches our origin
+                // Proxied content should be same-origin due to service worker rewriting
+                if (iframeWin!.location.origin === window.location.origin) {
+                    const script = iframeWin!.document.createElement('script');
+                    script.src = '/radius-client.js';
+                    script.async = false; // Load synchronously to ensure it runs early
+                    (iframeWin!.document.head || iframeWin!.document.documentElement).appendChild(script);
+                } else {
+                    console.warn('Radius: Not injecting client script - iframe origin mismatch');
+                }
             } catch (e) {
-                console.warn('Radius: Could not inject client script:', e);
+                // This can fail if iframe is cross-origin, which is expected for non-proxied content
+                console.warn('Radius: Could not inject client script (likely cross-origin):', e);
             }
         });
         
         // Listen for messages from the radius client in the iframe
         window.addEventListener('message', (event) => {
-            // Only handle messages from our iframe
+            // Security: Only handle messages from our iframe
             if (event.source !== iframeWin) {
+                return;
+            }
+            
+            // Security: Validate origin is from our domain
+            if (event.origin !== window.location.origin) {
+                console.warn('Radius: Ignoring message from untrusted origin:', event.origin);
                 return;
             }
             

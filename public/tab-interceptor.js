@@ -33,7 +33,7 @@
                     url: url,
                     target: target,
                     features: features
-                }, '*');
+                }, window.location.origin);
                 
                 // Return a fake window object to prevent errors
                 return {
@@ -80,7 +80,7 @@
                         type: 'radius-open-url',
                         url: href,
                         target: linkTarget
-                    }, '*');
+                    }, window.location.origin);
                 } else {
                     // If not in iframe, navigate in current window
                     window.location.href = href;
@@ -104,8 +104,8 @@
                 
                 // Build form data
                 const formData = new FormData(form);
-                const action = form.action;
-                const method = form.method || 'GET';
+                const action = form.action || window.location.href;
+                const method = (form.method || 'GET').toUpperCase();
                 
                 if (isInIframe && window.parent) {
                     // Send message to parent
@@ -115,7 +115,7 @@
                         method: method,
                         data: Object.fromEntries(formData),
                         target: formTarget
-                    }, '*');
+                    }, window.location.origin);
                 }
             }
         }
