@@ -121,6 +121,11 @@
                 const action = form.action || window.location.href;
                 const method = (form.method || 'GET').toUpperCase();
                 
+                // Warn if method was not specified (potential security concern)
+                if (!form.method) {
+                    console.warn('Radius: Form has no method specified, defaulting to GET. Sensitive data may be exposed in URL.');
+                }
+                
                 if (method === 'GET') {
                     // For GET, build URL with form data
                     const formData = new FormData(form);

@@ -135,17 +135,22 @@ const link = Astro.url.searchParams.get("redir");
             try {
                 // Security: Only inject if iframe origin matches our origin
                 // Proxied content should be same-origin due to service worker rewriting
-                if (iframeWin!.location.origin === window.location.origin) {
-                    const script = iframeWin!.document.createElement('script');
-                    script.src = '/radius-client.js';
-                    script.async = false; // Load synchronously to ensure it runs early
-                    (iframeWin!.document.head || iframeWin!.document.documentElement).appendChild(script);
-                } else {
-                    console.warn('Radius: Not injecting client script - iframe origin mismatch');
+                try {
+                    if (iframeWin!.location.origin === window.location.origin) {
+                        const script = iframeWin!.document.createElement('script');
+                        script.src = '/radius-client.js';
+                        script.async = false; // Load synchronously to ensure it runs early
+                        (iframeWin!.document.head || iframeWin!.document.documentElement).appendChild(script);
+                    } else {
+                        console.warn('Radius: Not injecting client script - iframe origin mismatch');
+                    }
+                } catch (originError) {
+                    // Cross-origin access to location.origin will throw - this is expected
+                    console.warn('Radius: Cannot check iframe origin (cross-origin)');
                 }
             } catch (e) {
                 // This can fail if iframe is cross-origin, which is expected for non-proxied content
-                console.warn('Radius: Could not inject client script (likely cross-origin):', e);
+                console.warn('Radius: Could not inject client script:', e);
             }
         });
         
@@ -165,10 +170,13 @@ const link = Astro.url.searchParams.get("redir");
             // Handle radius-open-url messages
             if (event.data && event.data.type === 'radius-open-url') {
                 const url = event.data.url;
-                if (url && url !== 'about:blank') {
+                // Validate URL before navigating
+                if (url && url !== 'about:blank' && (url.startsWith('http://') || url.startsWith('https://'))) {
                     console.log('Radius: Intercepted popup, loading in iframe:', url);
                     // Load the URL in the main iframe instead of opening a new tab
                     iframe.src = sw.encodeURL(url);
+                } else if (url && url !== 'about:blank') {
+                    console.warn('Radius: Ignoring invalid URL:', url);
                 }
             }
         });
