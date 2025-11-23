@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Popup Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        button, a {
+            display: inline-block;
+            margin: 10px 5px;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            text-decoration: none;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover, a:hover {
+            background: #0056b3;
+        }
+        h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 10px;
+            border-left: 4px solid #007bff;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Popup & New Tab Interception Test</h1>
+    
+    <div class="info">
+        <strong>Note:</strong> When this page is loaded in Radius proxy, all attempts to open new tabs or windows should be intercepted and loaded in the main iframe instead.
+    </div>
+
+    <div class="test-section">
+        <h2>Test 1: window.open() with URL</h2>
+        <button onclick="window.open('https://www.example.com', '_blank')">
+            Open Example.com in New Tab (window.open)
+        </button>
+        <p>Expected: Should load example.com in the main iframe, not a new tab.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Link with target="_blank"</h2>
+        <a href="https://www.example.com" target="_blank">
+            Open Example.com in New Tab (link with target="_blank")
+        </a>
+        <p>Expected: Should load example.com in the main iframe, not a new tab.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: window.open() without URL</h2>
+        <button onclick="window.open()">
+            Open Blank Popup (window.open)
+        </button>
+        <p>Expected: Should be intercepted and ignored (about:blank).</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Multiple window.open() calls</h2>
+        <button onclick="
+            window.open('https://www.example.com', '_blank');
+            window.open('https://www.google.com', '_blank');
+        ">
+            Open Multiple Popups
+        </button>
+        <p>Expected: Should load the first URL in the main iframe (second call may be blocked).</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Link with target="_new"</h2>
+        <a href="https://www.example.com" target="_new">
+            Open Example.com with target="_new"
+        </a>
+        <p>Expected: Should load example.com in the main iframe, not a new window.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 6: Form with target="_blank"</h2>
+        <form action="https://www.example.com" method="GET" target="_blank">
+            <input type="text" name="q" value="test" placeholder="Search query">
+            <button type="submit">Submit Form to New Tab</button>
+        </form>
+        <p>Expected: Should load the form action URL in the main iframe, not a new tab.</p>
+    </div>
+
+    <script>
+        // Log to console when window.open is called
+        const originalOpen = window.open;
+        console.log('Test page loaded. Original window.open:', typeof originalOpen);
+        
+        // Check if we're in the Radius proxy by looking for parent communication
+        if (window.self !== window.top) {
+            console.log('✓ Running inside an iframe (Radius proxy)');
+        } else {
+            console.log('⚠ Running directly (not in Radius proxy - interception won\'t work)');
+        }
+    </script>
+</body>
+</html>
