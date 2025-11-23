@@ -87,6 +87,9 @@ export function injectIframeInterceptor(
             const observer = new MutationObserver((mutations) => {
                 mutations.forEach((mutation) => {
                     mutation.addedNodes.forEach((node) => {
+                        // Ensure node is valid before processing
+                        if (!node) return;
+                        
                         if (node instanceof HTMLAnchorElement) {
                             const targetAttr = node.getAttribute("target");
                             if (targetAttr === "_blank" || targetAttr === "_new") {

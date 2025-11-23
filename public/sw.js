@@ -101,8 +101,11 @@ self.addEventListener("fetch", function (event) {
                 const isCaptcha = isCaptchaRequest(url);
                 const isHeavyCookie = isHeavyCookieSite(url);
                 
-                // Check if this is a proxied request before modifying
-                const isProxiedRequest = url.startsWith(location.origin + __uv$config.prefix) || sj.route(event);
+                // Safely check if this is a proxied request
+                const uvPrefix = typeof __uv$config !== 'undefined' ? __uv$config.prefix : null;
+                const isUvRequest = uvPrefix ? url.startsWith(location.origin + uvPrefix) : false;
+                const isSjRequest = sj.route(event);
+                const isProxiedRequest = isUvRequest || isSjRequest;
 
                 // Enhanced handling for CAPTCHA and heavy cookie requests
                 let request = event.request;
@@ -113,9 +116,9 @@ self.addEventListener("fetch", function (event) {
                 }
 
                 let response;
-                if (url.startsWith(location.origin + __uv$config.prefix)) {
+                if (isUvRequest) {
                     response = await uv.fetch(event);
-                } else if (sj.route(event)) {
+                } else if (isSjRequest) {
                     response = await sj.fetch(event);
                 } else {
                     response = await fetch(request);
@@ -176,6 +179,9 @@ const INTERCEPTOR_SCRIPT = `
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 mutation.addedNodes.forEach(function(node) {
+                    // Ensure node is valid before processing
+                    if (!node) return;
+                    
                     if (node.nodeType === 1) {
                         if (node.tagName === 'A' && (node.getAttribute('target') === '_blank' || node.getAttribute('target') === '_new')) {
                             node.removeAttribute('target');
