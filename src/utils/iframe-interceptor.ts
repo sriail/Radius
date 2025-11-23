@@ -87,8 +87,8 @@ export function injectIframeInterceptor(
             const observer = new MutationObserver((mutations) => {
                 mutations.forEach((mutation) => {
                     mutation.addedNodes.forEach((node) => {
-                        // Ensure node is valid before processing
-                        if (!node) return;
+                        // Check if it's an Element node (nodeType === 1)
+                        if (!(node instanceof Node) || node.nodeType !== 1) return;
                         
                         if (node instanceof HTMLAnchorElement) {
                             const targetAttr = node.getAttribute("target");

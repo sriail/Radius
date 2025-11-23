@@ -102,7 +102,9 @@ self.addEventListener("fetch", function (event) {
                 const isHeavyCookie = isHeavyCookieSite(url);
                 
                 // Safely check if this is a proxied request
-                const uvPrefix = typeof __uv$config !== 'undefined' ? __uv$config.prefix : null;
+                const uvPrefix = (typeof __uv$config !== 'undefined' && __uv$config && __uv$config.prefix) 
+                    ? __uv$config.prefix 
+                    : null;
                 const isUvRequest = uvPrefix ? url.startsWith(location.origin + uvPrefix) : false;
                 const isSjRequest = sj.route(event);
                 const isProxiedRequest = isUvRequest || isSjRequest;
@@ -155,7 +157,12 @@ const INTERCEPTOR_SCRIPT = `
             // Navigate in the current window instead of opening a new one
             // The URL is already proxied at this point, so we can directly navigate
             window.location.href = url;
-            return null;
+            
+            // Return a Proxy that mimics a Window object for compatibility
+            return new Proxy({}, {
+                get: function() { return null; },
+                set: function() { return true; }
+            });
         }
         return null;
     };
@@ -179,18 +186,16 @@ const INTERCEPTOR_SCRIPT = `
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 mutation.addedNodes.forEach(function(node) {
-                    // Ensure node is valid before processing
-                    if (!node) return;
+                    // Check if it's an Element node (nodeType === 1)
+                    if (node.nodeType !== 1) return;
                     
-                    if (node.nodeType === 1) {
-                        if (node.tagName === 'A' && (node.getAttribute('target') === '_blank' || node.getAttribute('target') === '_new')) {
-                            node.removeAttribute('target');
-                        }
-                        if (node.querySelectorAll) {
-                            node.querySelectorAll('a[target="_blank"], a[target="_new"]').forEach(function(anchor) {
-                                anchor.removeAttribute('target');
-                            });
-                        }
+                    if (node.tagName === 'A' && (node.getAttribute('target') === '_blank' || node.getAttribute('target') === '_new')) {
+                        node.removeAttribute('target');
+                    }
+                    if (node.querySelectorAll) {
+                        node.querySelectorAll('a[target="_blank"], a[target="_new"]').forEach(function(anchor) {
+                            anchor.removeAttribute('target');
+                        });
                     }
                 });
             });
@@ -222,16 +227,27 @@ async function injectInterceptorScript(response) {
             });
         }
         
-        // Inject the script just after <head> or at the beginning of <body>
-        // Use regex with once flag to replace only the first occurrence
+        // Inject the script just after opening tags
+        // Use regex with case-insensitive flag and handle both normal and self-closing tags
         let modifiedHtml = text;
+        let injected = false;
         
-        if (/<head>/i.test(text)) {
-            modifiedHtml = text.replace(/<head>/i, "<head>" + INTERCEPTOR_SCRIPT);
-        } else if (/<body>/i.test(text)) {
-            modifiedHtml = text.replace(/<body>/i, "<body>" + INTERCEPTOR_SCRIPT);
-        } else if (/<html>/i.test(text)) {
-            modifiedHtml = text.replace(/<html>/i, "<html>" + INTERCEPTOR_SCRIPT);
+        // Try to inject after <head> (including self-closing <head/>)
+        if (!injected && /<head(\s[^>]*)?>|<head\s*\/>/i.test(text)) {
+            modifiedHtml = text.replace(/<head(\s[^>]*)?>/i, match => match + INTERCEPTOR_SCRIPT);
+            injected = true;
+        }
+        
+        // Fallback: inject after <body> (including self-closing <body/>)
+        if (!injected && /<body(\s[^>]*)?>|<body\s*\/>/i.test(text)) {
+            modifiedHtml = text.replace(/<body(\s[^>]*)?>/i, match => match + INTERCEPTOR_SCRIPT);
+            injected = true;
+        }
+        
+        // Last resort: inject after <html> (including self-closing <html/>)
+        if (!injected && /<html(\s[^>]*)?>|<html\s*\/>/i.test(text)) {
+            modifiedHtml = text.replace(/<html(\s[^>]*)?>/i, match => match + INTERCEPTOR_SCRIPT);
+            injected = true;
         }
         
         // Return modified response
