@@ -39,7 +39,8 @@ const link = Astro.url.searchParams.get("redir");
 <script>
     import { SW } from "@utils/proxy.ts";
     import { Settings } from "@utils/settings.ts";
-    import { BareClient } from "@mercuryworkshop/bare-mux"; 
+    import { BareClient } from "@mercuryworkshop/bare-mux";
+    import { setupIframeInterceptor } from "@utils/iframe-interceptor.ts";
 
     const init = async () => {
         const input = document.getElementById("input") as HTMLInputElement;
@@ -62,6 +63,9 @@ const link = Astro.url.searchParams.get("redir");
         // Get SW instance and wait for it to be ready
         const sw = SW.getInstance().next().value!;
         await sw.ready();
+        
+        // Setup iframe interceptor to prevent new tabs/windows
+        setupIframeInterceptor(iframe, (url: string) => sw.encodeURL(url));
         
         input.addEventListener("keypress", async (event: any) => {
             if (event.key === "Enter") {
