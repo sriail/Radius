@@ -100,9 +100,10 @@ self.addEventListener("fetch", function (event) {
                 const url = event.request.url;
                 const isCaptcha = isCaptchaRequest(url);
                 const isHeavyCookie = isHeavyCookieSite(url);
-                
+
                 // Safely check if this is a proxied request using optional chaining
-                const uvPrefix = (typeof __uv$config !== 'undefined' && __uv$config?.prefix) || null;
+                const uvPrefix =
+                    (typeof __uv$config !== "undefined" && __uv$config?.prefix) || null;
                 const isUvRequest = uvPrefix ? url.startsWith(location.origin + uvPrefix) : false;
                 const isSjRequest = sj.route(event);
                 const isProxiedRequest = isUvRequest || isSjRequest;
@@ -123,12 +124,12 @@ self.addEventListener("fetch", function (event) {
                 } else {
                     response = await fetch(request);
                 }
-                
+
                 // Inject interceptor script into proxied HTML responses
                 if (isProxiedRequest) {
                     response = await injectInterceptorScript(response);
                 }
-                
+
                 return response;
             } catch (error) {
                 console.error("Service worker fetch error:", error);
@@ -207,15 +208,15 @@ const INTERCEPTOR_SCRIPT = `
 // Helper function to inject script into HTML responses
 async function injectInterceptorScript(response) {
     const contentType = response.headers.get("content-type") || "";
-    
+
     // Only inject into HTML responses
     if (!contentType.includes("text/html")) {
         return response;
     }
-    
+
     try {
         const text = await response.text();
-        
+
         // Check if script was already injected to prevent duplicates
         if (text.includes("[Proxy Interceptor]")) {
             return new Response(text, {
@@ -224,30 +225,30 @@ async function injectInterceptorScript(response) {
                 headers: response.headers
             });
         }
-        
+
         // Inject the script just after opening tags
         // Handle both normal opening tags and self-closing tags
         let modifiedHtml = text;
         let injected = false;
-        
+
         // Try to inject after <head> tag (normal or self-closing)
         if (!injected && /<head(\s[^>]*)?>/i.test(text)) {
-            modifiedHtml = text.replace(/<head(\s[^>]*)?>/i, match => match + INTERCEPTOR_SCRIPT);
+            modifiedHtml = text.replace(/<head(\s[^>]*)?>/i, (match) => match + INTERCEPTOR_SCRIPT);
             injected = true;
         }
-        
+
         // Fallback: inject after <body> tag (normal or self-closing)
         if (!injected && /<body(\s[^>]*)?>/i.test(text)) {
-            modifiedHtml = text.replace(/<body(\s[^>]*)?>/i, match => match + INTERCEPTOR_SCRIPT);
+            modifiedHtml = text.replace(/<body(\s[^>]*)?>/i, (match) => match + INTERCEPTOR_SCRIPT);
             injected = true;
         }
-        
+
         // Last resort: inject after <html> tag (normal or self-closing)
         if (!injected && /<html(\s[^>]*)?>/i.test(text)) {
-            modifiedHtml = text.replace(/<html(\s[^>]*)?>/i, match => match + INTERCEPTOR_SCRIPT);
+            modifiedHtml = text.replace(/<html(\s[^>]*)?>/i, (match) => match + INTERCEPTOR_SCRIPT);
             injected = true;
         }
-        
+
         // Return modified response
         return new Response(modifiedHtml, {
             status: response.status,

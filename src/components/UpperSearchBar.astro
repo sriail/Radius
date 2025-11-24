@@ -38,6 +38,8 @@ import { Icon } from "astro-icon/components";
                         return true;
                     case 'home':
                         window.location.href = '/';
+                        // Clear the search bar for about:home
+                        upperSearchInput.value = '';
                         return true;
                     case '404':
                         window.location.href = '/404';
@@ -47,6 +49,11 @@ import { Icon } from "astro-icon/components";
             return false;
         };
 
+        // Auto-select text when input is clicked
+        upperSearchInput.addEventListener("click", () => {
+            upperSearchInput.select();
+        });
+
         // Update URL display when iframe loads
         const updateURLDisplay = async () => {
             if (!iframe || iframe.classList.contains("hidden")) {
@@ -55,7 +62,8 @@ import { Icon } from "astro-icon/components";
                 if (currentPath === '/settings' || currentPath.startsWith('/settings/')) {
                     upperSearchInput.value = 'about:settings';
                 } else if (currentPath === '/' || currentPath === '/index') {
-                    upperSearchInput.value = 'about:home';
+                    // For homepage, leave search bar empty (don't show about:home)
+                    upperSearchInput.value = '';
                 } else if (currentPath === '/404') {
                     upperSearchInput.value = 'about:404';
                 } else {
