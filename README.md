@@ -3,9 +3,6 @@
         <img src="https://drive.google.com/uc?id=1DMvvZ6PHFw0GLJc4-JDf8-UAf-V6J6Ta" width="640" height="480" />
     </a>
 </p>
-<div style="text-align: center;">
-  # [Radius](https://studyworkandmore.uk)
-</div>
 
 # [Radius](https://radiusproxy.app)
 ![Stars](https://shields.io/github/stars/RadiusProxy/Radius?style=flat-square&logo=github)
