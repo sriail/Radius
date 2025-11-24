@@ -7,7 +7,7 @@
 <p align="center">
 </p>
 
-Radius is a simple and clean web proxy designed for speed and ease-of-use, made in Astro.
+Radius is a simple and clean web proxy designed for speed and ease-of-use, made in Astro (basead on the origonal Radius Proxy with updated, modernized fetures!).
 
 Join the [Discord!](https://discord.gg/cCfytCX6Sv) (Or [TitaniumNetwork's](https://discord.gg/unblock))
 
@@ -116,16 +116,6 @@ services:
 All platforms support the following environment variables:
 - `PORT` - The port number to run the server on (default: 8080)
 
-### Performance and Compatibility Features
-Radius has been optimized for websites with heavy cookies, service workers, and complex browser services:
-- **Enhanced Cookie Support**: 32KB header size limit for sites with extensive cookies
-- **Improved Connection Stability**: Keep-alive and extended timeouts (120s)
-- **Better Error Handling**: Comprehensive error recovery and logging
-- **Optimized for Complex Sites**: Support for Amazon, Google, Facebook, Netflix, and more
-- **Iframe Tab/Window Interception**: Automatically prevents proxied sites from opening new tabs or windows, keeping all navigation within the iframe for a seamless experience
-
-For detailed information, see [IMPROVEMENTS.md](IMPROVEMENTS.md) and [IFRAME_INTERCEPTION.md](IFRAME_INTERCEPTION.md)
-
 ### Bare Server Connection Limiter
 These variables control the rate limiting for the Bare server to prevent abuse while allowing normal browsing (optional but recomended) can be ajusted based on security prefrences and expected usage:
 - `BARE_MAX_CONNECTIONS_PER_IP` - Maximum number of concurrent keep-alive connections per IP address (default: 1000)
@@ -194,6 +184,7 @@ If you can not deploy, visit a example deployment with Radius using QuickDeploy 
 [proudparrot2](https://github.com/proudparrot2) - Founder and original dev of Radius <br>
 [MotorTruck1221](https://github.com/motortruck1221) - Astro rewrite and lead dev of Radius <br>
 [All of the contributors!](https://github.com/sriail/Radius/graphs/contributors)
+
 
 
 
