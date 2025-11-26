@@ -9,12 +9,26 @@
  * List of CAPTCHA and verification-related domains
  */
 const CAPTCHA_DOMAINS = [
+    // reCAPTCHA domains
     "google.com",
+    "www.google.com",
     "recaptcha.net",
+    "www.recaptcha.net",
     "gstatic.com",
+    "www.gstatic.com",
+    // hCaptcha domains
     "hcaptcha.com",
+    "www.hcaptcha.com",
+    "newassets.hcaptcha.com",
+    "assets.hcaptcha.com",
+    "imgs.hcaptcha.com",
+    "js.hcaptcha.com",
+    "api.hcaptcha.com",
+    "api2.hcaptcha.com",
+    // Cloudflare Turnstile domains
     "cloudflare.com",
-    "challenges.cloudflare.com"
+    "challenges.cloudflare.com",
+    "turnstile.cloudflare.com"
 ];
 
 /**
@@ -49,31 +63,65 @@ export function initializeCaptchaHandlers() {
         window.___grecaptcha_cfg = { clients: {} };
     }
 
+    // Initialize hCaptcha global object
+    if (!window.hcaptcha) {
+        window.hcaptcha = {};
+    }
+
+    // Initialize Turnstile global object
+    if (!window.turnstile) {
+        window.turnstile = {};
+    }
+
+    // Check if URL is CAPTCHA-related
+    const isCaptchaUrl = (url: string): boolean => {
+        const urlLower = url.toLowerCase();
+        return CAPTCHA_DOMAINS.some((domain) => urlLower.includes(domain));
+    };
+
+    // Setup CAPTCHA iframe with proper permissions
+    const setupCaptchaIframe = (iframe: HTMLIFrameElement) => {
+        const src = iframe.src || iframe.getAttribute("src") || "";
+        if (
+            src.includes("recaptcha") ||
+            src.includes("hcaptcha") ||
+            src.includes("challenges.cloudflare.com") ||
+            src.includes("turnstile") ||
+            isCaptchaUrl(src)
+        ) {
+            // Ensure the iframe has proper sandbox permissions
+            if (iframe.sandbox && iframe.sandbox.length > 0) {
+                iframe.sandbox.add("allow-same-origin");
+                iframe.sandbox.add("allow-scripts");
+                iframe.sandbox.add("allow-forms");
+                iframe.sandbox.add("allow-popups");
+                iframe.sandbox.add("allow-popups-to-escape-sandbox");
+            }
+
+            // Ensure credentials are included for CAPTCHA cookies
+            if (iframe.getAttribute("credentialless") !== null) {
+                iframe.removeAttribute("credentialless");
+            }
+
+            // Add proper allow attribute for permissions policy
+            const allow = iframe.getAttribute("allow") || "";
+            if (!allow.includes("cross-origin-isolated")) {
+                iframe.setAttribute("allow", allow + (allow ? "; " : "") + "cross-origin-isolated");
+            }
+        }
+    };
+
     // Monitor for CAPTCHA iframe creation and ensure proper setup
     const observer = new MutationObserver((mutations) => {
         mutations.forEach((mutation) => {
             mutation.addedNodes.forEach((node) => {
                 if (node instanceof HTMLIFrameElement) {
-                    const src = node.src || "";
-                    // Check if this is a CAPTCHA iframe
-                    if (
-                        src.includes("recaptcha") ||
-                        src.includes("hcaptcha") ||
-                        src.includes("challenges.cloudflare.com") ||
-                        src.includes("turnstile")
-                    ) {
-                        // Ensure the iframe has proper sandbox permissions
-                        if (node.sandbox && node.sandbox.length > 0) {
-                            node.sandbox.add("allow-same-origin");
-                            node.sandbox.add("allow-scripts");
-                            node.sandbox.add("allow-forms");
-                        }
-
-                        // Ensure credentials are included for CAPTCHA cookies
-                        if (node.getAttribute("credentialless") !== null) {
-                            node.removeAttribute("credentialless");
-                        }
-                    }
+                    setupCaptchaIframe(node);
+                } else if (node instanceof HTMLElement) {
+                    // Also check for iframes within added nodes
+                    node.querySelectorAll("iframe").forEach((iframe) => {
+                        setupCaptchaIframe(iframe as HTMLIFrameElement);
+                    });
                 }
             });
         });
@@ -85,6 +133,11 @@ export function initializeCaptchaHandlers() {
         subtree: true
     });
 
+    // Setup existing iframes
+    document.querySelectorAll("iframe").forEach((iframe) => {
+        setupCaptchaIframe(iframe as HTMLIFrameElement);
+    });
+
     // Ensure cookies are properly handled for CAPTCHA tokens and heavy cookie sites
     enhanceCookieHandling();
 
@@ -93,6 +146,9 @@ export function initializeCaptchaHandlers() {
 
     // Add storage persistence for better cookie support
     enhanceStoragePersistence();
+
+    // Setup postMessage handler for CAPTCHA communication
+    setupPostMessageHandler();
 }
 
 /**
@@ -219,13 +275,60 @@ function enhanceStoragePersistence() {
 }
 
 /**
- * Global declaration for reCAPTCHA config
+ * Setup postMessage handler to enable CAPTCHA communication
+ * This ensures that CAPTCHA widgets can communicate with their parent pages
+ */
+function setupPostMessageHandler() {
+    // Listen for CAPTCHA-related messages
+    window.addEventListener("message", (event) => {
+        // Check if this is a CAPTCHA-related message
+        const origin = event.origin || "";
+        const isCaptchaOrigin = CAPTCHA_DOMAINS.some((domain) =>
+            origin.toLowerCase().includes(domain)
+        );
+
+        if (isCaptchaOrigin) {
+            // Allow CAPTCHA messages to be processed normally
+            // The browser's default handling will take care of it
+            return;
+        }
+    });
+
+    // Enhance postMessage to allow CAPTCHA communication
+    const originalPostMessage = window.postMessage.bind(window);
+    window.postMessage = function (
+        message: unknown,
+        targetOrigin: string,
+        transfer?: Transferable[]
+    ) {
+        // Check if target is a CAPTCHA origin
+        if (targetOrigin && targetOrigin !== "*") {
+            const isCaptchaTarget = CAPTCHA_DOMAINS.some((domain) =>
+                targetOrigin.toLowerCase().includes(domain)
+            );
+            // For CAPTCHA targets, use wildcard to avoid cross-origin issues in proxy
+            if (isCaptchaTarget) {
+                targetOrigin = "*";
+            }
+        }
+        return originalPostMessage(message, targetOrigin, transfer);
+    };
+}
+
+/**
+ * Global declaration for CAPTCHA configs
  */
 declare global {
     interface Window {
         ___grecaptcha_cfg?: {
-            clients: Record<string, any>;
-            [key: string]: any;
+            clients: Record<string, unknown>;
+            [key: string]: unknown;
+        };
+        hcaptcha?: {
+            [key: string]: unknown;
+        };
+        turnstile?: {
+            [key: string]: unknown;
         };
     }
 }
