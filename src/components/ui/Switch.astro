@@ -35,8 +35,9 @@ const { id, label, description, defaultChecked } = Astro.props;
 </div>
 <script>
     document.addEventListener('astro:page-load', () => {
-        const switches = document.querySelectorAll('[role="switch"]');
+        const switches = document.querySelectorAll('[role="switch"]:not([data-switch-initialized])');
         switches.forEach((switchEl) => {
+            switchEl.setAttribute('data-switch-initialized', 'true');
             switchEl.addEventListener('click', () => {
                 const isChecked = switchEl.getAttribute('aria-checked') === 'true';
                 const newState = !isChecked;

@@ -29,12 +29,13 @@ import { Icon } from "astro-icon/components";
 </SettingsLayout>
 
 <script>
-    import { Settings } from "@utils/settings.ts";
     import { StoreManager } from "@utils/storage";
 
-    const initExperiments = async (storage: StoreManager<"radius||settings">) => {
-        const preconfiguredSitesSwitch = document.getElementById("switch-preconfiguredSites") as HTMLButtonElement;
-        const dynamicLoadingSwitch = document.getElementById("switch-dynamicLoading") as HTMLButtonElement;
+    const initExperiments = (storage: StoreManager<"radius||settings">) => {
+        const preconfiguredSitesSwitch = document.getElementById("switch-preconfiguredSites");
+        const dynamicLoadingSwitch = document.getElementById("switch-dynamicLoading");
+
+        if (!preconfiguredSitesSwitch || !dynamicLoadingSwitch) return;
 
         // Load saved states
         const preconfiguredSitesEnabled = storage.getVal("experimentPreconfiguredSites") === "true";
@@ -67,10 +68,10 @@ import { Icon } from "astro-icon/components";
         });
     };
 
-    document.addEventListener("astro:page-load", async () => {
+    document.addEventListener("astro:page-load", () => {
         try {
             const storageManager = new StoreManager<"radius||settings">("radius||settings");
-            await initExperiments(storageManager);
+            initExperiments(storageManager);
         } catch (err) {
             console.log(err);
         }
