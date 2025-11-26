@@ -67,9 +67,6 @@ heroku create your-app-name
 git push heroku main
 ```
 
-## Deploy to Replit
-[![Run on Replit](https://replit.com/badge/github/RadiusProxy/Radius)](https://replit.com/new/github/sriail/Radius)
-
 ## Deploy to CodeSandbox
 [![Edit in CodeSandbox](https://codesandbox.io/static/img/play-codesandbox.svg)](https://codesandbox.io/s/github/sriail/Radius)
 
@@ -176,6 +173,7 @@ If you can not deploy, visit a example deployment with Radius using QuickDeploy 
 [proudparrot2](https://github.com/proudparrot2) - Founder and original dev of Radius <br>
 [MotorTruck1221](https://github.com/motortruck1221) - Astro rewrite and lead dev of Radius <br>
 [All of the contributors!](https://github.com/sriail/Radius/graphs/contributors)
+
 
 
 
