@@ -6,21 +6,21 @@
  */
 
 /**
- * List of CAPTCHA and verification-related domains
+ * Use Sets for O(1) lookup instead of Array.some()
  */
-const CAPTCHA_DOMAINS = [
+const CAPTCHA_DOMAINS = new Set([
     "google.com",
     "recaptcha.net",
     "gstatic.com",
     "hcaptcha.com",
     "cloudflare.com",
     "challenges.cloudflare.com"
-];
+]);
 
 /**
- * List of domains known to use heavy cookies and complex browser services
+ * Set of domains known to use heavy cookies and complex browser services
  */
-const HEAVY_COOKIE_DOMAINS = [
+const HEAVY_COOKIE_DOMAINS = new Set([
     "amazon.com",
     "ebay.com",
     "walmart.com",
@@ -34,7 +34,50 @@ const HEAVY_COOKIE_DOMAINS = [
     "apple.com",
     "netflix.com",
     "spotify.com"
-];
+]);
+
+// Cache for domain checks to avoid redundant operations
+const domainCheckCache = new Map<string, boolean>();
+const DOMAIN_CACHE_MAX_SIZE = 500;
+const DOMAIN_CACHE_EVICT_COUNT = 50; // Evict 10% of cache
+
+// Helper to check if URL matches any domain
+function matchesDomain(url: string, domains: Set<string>): boolean {
+    const cacheKey = url;
+    if (domainCheckCache.has(cacheKey)) {
+        return domainCheckCache.get(cacheKey)!;
+    }
+
+    const urlLower = url.toLowerCase();
+    let result = false;
+    for (const domain of domains) {
+        if (urlLower.includes(domain)) {
+            result = true;
+            break;
+        }
+    }
+
+    // Cache with size limit and batch eviction
+    if (domainCheckCache.size >= DOMAIN_CACHE_MAX_SIZE) {
+        let evicted = 0;
+        for (const key of domainCheckCache.keys()) {
+            if (evicted >= DOMAIN_CACHE_EVICT_COUNT) break;
+            domainCheckCache.delete(key);
+            evicted++;
+        }
+    }
+    domainCheckCache.set(cacheKey, result);
+    return result;
+}
+
+// Precompiled patterns for CAPTCHA iframe detection
+const CAPTCHA_IFRAME_PATTERNS = ["recaptcha", "hcaptcha", "challenges.cloudflare.com", "turnstile"];
+
+// Precompiled patterns for important cookies
+const IMPORTANT_COOKIE_PATTERNS = ["_GRECAPTCHA", "h-captcha", "cf_", "session", "auth", "token"];
+
+// Track if handlers have been initialized to avoid duplicate setup
+let handlersInitialized = false;
 
 /**
  * Initialize CAPTCHA handlers on page load
@@ -44,39 +87,69 @@ const HEAVY_COOKIE_DOMAINS = [
 export function initializeCaptchaHandlers() {
     if (typeof window === "undefined") return;
 
+    // Prevent duplicate initialization
+    if (handlersInitialized) return;
+    handlersInitialized = true;
+
     // Ensure global CAPTCHA callbacks are accessible
     if (!window.___grecaptcha_cfg) {
         window.___grecaptcha_cfg = { clients: {} };
     }
 
-    // Monitor for CAPTCHA iframe creation and ensure proper setup
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-                if (node instanceof HTMLIFrameElement) {
-                    const src = node.src || "";
-                    // Check if this is a CAPTCHA iframe
-                    if (
-                        src.includes("recaptcha") ||
-                        src.includes("hcaptcha") ||
-                        src.includes("challenges.cloudflare.com") ||
-                        src.includes("turnstile")
-                    ) {
-                        // Ensure the iframe has proper sandbox permissions
-                        if (node.sandbox && node.sandbox.length > 0) {
-                            node.sandbox.add("allow-same-origin");
-                            node.sandbox.add("allow-scripts");
-                            node.sandbox.add("allow-forms");
-                        }
+    // Debounced batch processing for mutations
+    let pendingNodes: Node[] = [];
+    let processingScheduled = false;
 
-                        // Ensure credentials are included for CAPTCHA cookies
-                        if (node.getAttribute("credentialless") !== null) {
-                            node.removeAttribute("credentialless");
-                        }
+    const processPendingNodes = () => {
+        processingScheduled = false;
+        const nodesToProcess = pendingNodes;
+        pendingNodes = [];
+
+        for (const node of nodesToProcess) {
+            if (node instanceof HTMLIFrameElement) {
+                const src = node.src || "";
+                // Check if this is a CAPTCHA iframe using precompiled patterns
+                const isCaptchaIframe = CAPTCHA_IFRAME_PATTERNS.some((pattern) =>
+                    src.includes(pattern)
+                );
+
+                if (isCaptchaIframe) {
+                    // Ensure the iframe has proper sandbox permissions
+                    if (node.sandbox && node.sandbox.length > 0) {
+                        node.sandbox.add("allow-same-origin");
+                        node.sandbox.add("allow-scripts");
+                        node.sandbox.add("allow-forms");
+                    }
+
+                    // Ensure credentials are included for CAPTCHA cookies
+                    if (node.getAttribute("credentialless") !== null) {
+                        node.removeAttribute("credentialless");
                     }
                 }
-            });
-        });
+            }
+        }
+    };
+
+    // Monitor for CAPTCHA iframe creation with batched processing
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node instanceof HTMLIFrameElement) {
+                    pendingNodes.push(node);
+                }
+            }
+        }
+
+        // Schedule batch processing
+        if (pendingNodes.length > 0 && !processingScheduled) {
+            processingScheduled = true;
+            // Use requestIdleCallback if available, otherwise setTimeout
+            if ("requestIdleCallback" in window) {
+                (window as any).requestIdleCallback(processPendingNodes, { timeout: 100 });
+            } else {
+                setTimeout(processPendingNodes, 0);
+            }
+        }
     });
 
     // Start observing the document for changes
@@ -110,16 +183,10 @@ function enhanceCookieHandling() {
             set(value) {
                 // Ensure SameSite=None for cookies in cross-origin contexts
                 if (typeof value === "string") {
-                    // Check if this is a CAPTCHA or heavy cookie site cookie
-                    const isCaptchaCookie =
-                        value.includes("_GRECAPTCHA") ||
-                        value.includes("h-captcha") ||
-                        value.includes("cf_");
-                    const isImportantCookie =
-                        isCaptchaCookie ||
-                        value.includes("session") ||
-                        value.includes("auth") ||
-                        value.includes("token");
+                    // Check if this is a CAPTCHA or heavy cookie site cookie using precompiled patterns
+                    const isImportantCookie = IMPORTANT_COOKIE_PATTERNS.some((pattern) =>
+                        value.includes(pattern)
+                    );
 
                     if (isImportantCookie && !value.includes("SameSite")) {
                         value += "; SameSite=None; Secure";
@@ -149,8 +216,8 @@ function enhanceNetworkRequests() {
                   : input.toString();
 
         // Check if this is a CAPTCHA-related or heavy cookie site request
-        const isCaptchaRequest = CAPTCHA_DOMAINS.some((domain) => url.includes(domain));
-        const isHeavyCookieRequest = HEAVY_COOKIE_DOMAINS.some((domain) => url.includes(domain));
+        const isCaptchaRequest = matchesDomain(url, CAPTCHA_DOMAINS);
+        const isHeavyCookieRequest = !isCaptchaRequest && matchesDomain(url, HEAVY_COOKIE_DOMAINS);
 
         if (isCaptchaRequest || isHeavyCookieRequest) {
             // Ensure credentials are included
@@ -185,10 +252,9 @@ function enhanceNetworkRequests() {
         const originalOpen = xhr.open;
         xhr.open = function (method: string, url: string | URL, ...args: any[]) {
             const urlStr = url.toString();
-            const isCaptchaRequest = CAPTCHA_DOMAINS.some((domain) => urlStr.includes(domain));
-            const isHeavyCookieRequest = HEAVY_COOKIE_DOMAINS.some((domain) =>
-                urlStr.includes(domain)
-            );
+            const isCaptchaRequest = matchesDomain(urlStr, CAPTCHA_DOMAINS);
+            const isHeavyCookieRequest =
+                !isCaptchaRequest && matchesDomain(urlStr, HEAVY_COOKIE_DOMAINS);
 
             if (isCaptchaRequest || isHeavyCookieRequest) {
                 // Ensure credentials are included

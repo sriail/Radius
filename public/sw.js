@@ -17,9 +17,19 @@ const sj = new ScramjetServiceWorker({
     }
 });
 
+// Cache for routing decisions to avoid redundant checks
+const routeCache = new Map();
+const ROUTE_CACHE_MAX_SIZE = 500;
+const ROUTE_CACHE_TTL = 30000; // 30 seconds
+const CACHE_EVICT_COUNT = 50; // Evict 10% of cache
+
+// Cache for domain checks to avoid redundant string operations
+const domainCheckCache = new Map();
+const DOMAIN_CHECK_CACHE_MAX_SIZE = 500;
+
 // Enhanced CAPTCHA and Cloudflare verification support
-// List of CAPTCHA and verification domains that need special handling
-const CAPTCHA_DOMAINS = [
+// Use Set for O(1) lookup instead of Array with some()
+const CAPTCHA_DOMAINS = new Set([
     "google.com/recaptcha",
     "www.google.com/recaptcha",
     "recaptcha.net",
@@ -30,10 +40,10 @@ const CAPTCHA_DOMAINS = [
     "challenges.cloudflare.com",
     "cloudflare.com/cdn-cgi/challenge",
     "turnstile.cloudflare.com"
-];
+]);
 
 // Domains that use heavy cookies and complex browser services
-const HEAVY_COOKIE_DOMAINS = [
+const HEAVY_COOKIE_DOMAINS = new Set([
     "amazon.com",
     "ebay.com",
     "walmart.com",
@@ -47,19 +57,68 @@ const HEAVY_COOKIE_DOMAINS = [
     "apple.com",
     "netflix.com",
     "spotify.com"
-];
+]);
 
-// Helper function to check if URL is CAPTCHA-related
+// Optimized helper function to check if URL is CAPTCHA-related
 function isCaptchaRequest(url) {
+    const cacheKey = "captcha:" + url;
+    if (domainCheckCache.has(cacheKey)) {
+        return domainCheckCache.get(cacheKey);
+    }
+
     const urlStr = url.toString().toLowerCase();
-    return CAPTCHA_DOMAINS.some((domain) => urlStr.includes(domain));
+    let result = false;
+    for (const domain of CAPTCHA_DOMAINS) {
+        if (urlStr.includes(domain)) {
+            result = true;
+            break;
+        }
+    }
+
+    // Cache with size limit and batch eviction
+    if (domainCheckCache.size >= DOMAIN_CHECK_CACHE_MAX_SIZE) {
+        let evicted = 0;
+        for (const key of domainCheckCache.keys()) {
+            if (evicted >= CACHE_EVICT_COUNT) break;
+            domainCheckCache.delete(key);
+            evicted++;
+        }
+    }
+    domainCheckCache.set(cacheKey, result);
+    return result;
 }
 
-// Helper function to check if URL is from a site with heavy cookies
+// Optimized helper function to check if URL is from a site with heavy cookies
 function isHeavyCookieSite(url) {
+    const cacheKey = "heavy:" + url;
+    if (domainCheckCache.has(cacheKey)) {
+        return domainCheckCache.get(cacheKey);
+    }
+
     const urlStr = url.toString().toLowerCase();
-    return HEAVY_COOKIE_DOMAINS.some((domain) => urlStr.includes(domain));
+    let result = false;
+    for (const domain of HEAVY_COOKIE_DOMAINS) {
+        if (urlStr.includes(domain)) {
+            result = true;
+            break;
+        }
+    }
+
+    // Cache with size limit and batch eviction
+    if (domainCheckCache.size >= DOMAIN_CHECK_CACHE_MAX_SIZE) {
+        let evicted = 0;
+        for (const key of domainCheckCache.keys()) {
+            if (evicted >= CACHE_EVICT_COUNT) break;
+            domainCheckCache.delete(key);
+            evicted++;
+        }
+    }
+    domainCheckCache.set(cacheKey, result);
+    return result;
 }
+
+// Reusable headers for CAPTCHA requests
+const CAPTCHA_HEADERS_TEMPLATE = { Accept: "*/*" };
 
 // Helper function to ensure proper CAPTCHA handling
 function enhanceCaptchaRequest(request) {
@@ -68,7 +127,7 @@ function enhanceCaptchaRequest(request) {
 
     // Ensure proper headers for CAPTCHA requests
     if (!headers.has("Accept")) {
-        headers.set("Accept", "*/*");
+        headers.set("Accept", CAPTCHA_HEADERS_TEMPLATE.Accept);
     }
 
     // Preserve credentials for CAPTCHA cookies
@@ -91,29 +150,67 @@ function enhanceHeavyCookieRequest(request) {
     });
 }
 
+// Cache sj config loading status
+let sjConfigLoaded = false;
+
 self.addEventListener("fetch", function (event) {
     event.respondWith(
         (async () => {
             try {
-                await sj.loadConfig();
+                // Only load config once per SW lifecycle
+                if (!sjConfigLoaded) {
+                    await sj.loadConfig();
+                    sjConfigLoaded = true;
+                }
 
                 const url = event.request.url;
-                const isCaptcha = isCaptchaRequest(url);
-                const isHeavyCookie = isHeavyCookieSite(url);
 
-                // Safely check if this is a proxied request using optional chaining
-                const uvPrefix =
-                    (typeof __uv$config !== "undefined" && __uv$config?.prefix) || null;
-                const isUvRequest = uvPrefix ? url.startsWith(location.origin + uvPrefix) : false;
-                const isSjRequest = sj.route(event);
-                const isProxiedRequest = isUvRequest || isSjRequest;
+                // Check route cache for faster routing
+                let routeInfo = routeCache.get(url);
+                const now = Date.now();
 
-                // Enhanced handling for CAPTCHA and heavy cookie requests
+                if (!routeInfo || now - routeInfo.timestamp > ROUTE_CACHE_TTL) {
+                    // Safely check if this is a proxied request using optional chaining
+                    const uvPrefix =
+                        (typeof __uv$config !== "undefined" && __uv$config?.prefix) || null;
+                    const isUvRequest = uvPrefix
+                        ? url.startsWith(location.origin + uvPrefix)
+                        : false;
+                    const isSjRequest = sj.route(event);
+
+                    routeInfo = {
+                        isUvRequest,
+                        isSjRequest,
+                        isProxiedRequest: isUvRequest || isSjRequest,
+                        timestamp: now
+                    };
+
+                    // Cache with size limit and batch eviction
+                    if (routeCache.size >= ROUTE_CACHE_MAX_SIZE) {
+                        let evicted = 0;
+                        for (const key of routeCache.keys()) {
+                            if (evicted >= CACHE_EVICT_COUNT) break;
+                            routeCache.delete(key);
+                            evicted++;
+                        }
+                    }
+                    routeCache.set(url, routeInfo);
+                }
+
+                const { isUvRequest, isSjRequest, isProxiedRequest } = routeInfo;
+
+                // Only check CAPTCHA and heavy cookie for non-proxied requests
                 let request = event.request;
-                if (isCaptcha) {
-                    request = enhanceCaptchaRequest(event.request);
-                } else if (isHeavyCookie) {
-                    request = enhanceHeavyCookieRequest(event.request);
+                if (!isProxiedRequest) {
+                    const isCaptcha = isCaptchaRequest(url);
+                    if (isCaptcha) {
+                        request = enhanceCaptchaRequest(event.request);
+                    } else {
+                        const isHeavyCookie = isHeavyCookieSite(url);
+                        if (isHeavyCookie) {
+                            request = enhanceHeavyCookieRequest(event.request);
+                        }
+                    }
                 }
 
                 let response;
@@ -205,6 +302,11 @@ const INTERCEPTOR_SCRIPT = `
 </script>
 `;
 
+// Precompiled regex patterns for better performance
+const HEAD_TAG_REGEX = /<head(\s[^>]*)?>/i;
+const BODY_TAG_REGEX = /<body(\s[^>]*)?>/i;
+const HTML_TAG_REGEX = /<html(\s[^>]*)?>/i;
+
 // Helper function to inject script into HTML responses
 async function injectInterceptorScript(response) {
     const contentType = response.headers.get("content-type") || "";
@@ -226,26 +328,25 @@ async function injectInterceptorScript(response) {
             });
         }
 
-        // Inject the script just after opening tags
-        // Handle both normal opening tags and self-closing tags
+        // Inject the script just after opening tags using precompiled regex
         let modifiedHtml = text;
         let injected = false;
 
         // Try to inject after <head> tag (normal or self-closing)
-        if (!injected && /<head(\s[^>]*)?>/i.test(text)) {
-            modifiedHtml = text.replace(/<head(\s[^>]*)?>/i, (match) => match + INTERCEPTOR_SCRIPT);
+        if (!injected && HEAD_TAG_REGEX.test(text)) {
+            modifiedHtml = text.replace(HEAD_TAG_REGEX, (match) => match + INTERCEPTOR_SCRIPT);
             injected = true;
         }
 
         // Fallback: inject after <body> tag (normal or self-closing)
-        if (!injected && /<body(\s[^>]*)?>/i.test(text)) {
-            modifiedHtml = text.replace(/<body(\s[^>]*)?>/i, (match) => match + INTERCEPTOR_SCRIPT);
+        if (!injected && BODY_TAG_REGEX.test(text)) {
+            modifiedHtml = text.replace(BODY_TAG_REGEX, (match) => match + INTERCEPTOR_SCRIPT);
             injected = true;
         }
 
         // Last resort: inject after <html> tag (normal or self-closing)
-        if (!injected && /<html(\s[^>]*)?>/i.test(text)) {
-            modifiedHtml = text.replace(/<html(\s[^>]*)?>/i, (match) => match + INTERCEPTOR_SCRIPT);
+        if (!injected && HTML_TAG_REGEX.test(text)) {
+            modifiedHtml = text.replace(HTML_TAG_REGEX, (match) => match + INTERCEPTOR_SCRIPT);
             injected = true;
         }
 

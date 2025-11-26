@@ -16,6 +16,25 @@ import { handler as astroHandler } from "../dist/server/entry.mjs";
 import { createServer } from "node:http";
 import { Socket } from "node:net";
 
+// Cache for routing decisions to reduce repeated checks
+const routingCache = new Map<string, "bare" | "wisp" | "static">();
+const ROUTING_CACHE_MAX_SIZE = 1000;
+const ROUTING_CACHE_TTL = 60000; // 1 minute
+
+// Helper to manage routing cache with TTL and size limit
+const cacheRoutingDecision = (url: string, decision: "bare" | "wisp" | "static"): void => {
+    if (routingCache.size >= ROUTING_CACHE_MAX_SIZE) {
+        // Remove oldest entries using iterator to avoid array allocation
+        let evicted = 0;
+        for (const key of routingCache.keys()) {
+            if (evicted >= 100) break;
+            routingCache.delete(key);
+            evicted++;
+        }
+    }
+    routingCache.set(url, decision);
+};
+
 const bareServer = createBareServer("/bare/", {
     connectionLimiter: {
         // Optimized for sites with heavy cookies and complex browser services
@@ -35,13 +54,26 @@ const serverFactory: FastifyServerFactory = (
         keepAlive: true,
         keepAliveTimeout: 65000, // 65 seconds
         // Increase timeout for long-running requests
-        requestTimeout: 120000 // 120 seconds
+        requestTimeout: 120000, // 120 seconds
+        // Enable high watermark for better throughput
+        highWaterMark: 65536 // 64KB buffer
     });
 
     server
         .on("request", (req, res) => {
             try {
+                const url = req.url || "";
+
+                // Check routing cache first for faster routing decisions
+                const cachedDecision = routingCache.get(url);
+                if (cachedDecision === "bare") {
+                    bareServer.routeRequest(req, res);
+                    return;
+                }
+
+                // Make routing decision
                 if (bareServer.shouldRoute(req)) {
+                    cacheRoutingDecision(url, "bare");
                     bareServer.routeRequest(req, res);
                 } else {
                     handler(req, res);
@@ -56,10 +88,16 @@ const serverFactory: FastifyServerFactory = (
         })
         .on("upgrade", (req, socket, head) => {
             try {
+                const url = req.url || "";
+                const isWisp = url.endsWith("/wisp/") || url.endsWith("/adblock/");
+
                 if (bareServer.shouldRoute(req)) {
                     bareServer.routeUpgrade(req, socket as Socket, head);
-                } else if (req.url?.endsWith("/wisp/") || req.url?.endsWith("/adblock/")) {
-                    console.log("WebSocket upgrade:", req.url);
+                } else if (isWisp) {
+                    // Only log in development mode to reduce overhead
+                    if (process.env.NODE_ENV === "development") {
+                        console.log("WebSocket upgrade:", url);
+                    }
                     wisp.routeRequest(req, socket as Socket, head);
                 }
             } catch (error) {
@@ -71,7 +109,10 @@ const serverFactory: FastifyServerFactory = (
             console.error("Server error:", error);
         })
         .on("clientError", (error, socket) => {
-            console.error("Client error:", error);
+            // Only log in development to reduce console spam
+            if (process.env.NODE_ENV === "development") {
+                console.error("Client error:", error);
+            }
             if (!socket.destroyed) {
                 socket.end("HTTP/1.1 400 Bad Request\r\n\r\n");
             }
@@ -95,7 +136,13 @@ const app = Fastify({
 });
 
 await app.register(fastifyStatic, {
-    root: fileURLToPath(new URL("../dist/client", import.meta.url))
+    root: fileURLToPath(new URL("../dist/client", import.meta.url)),
+    // Enable caching headers for static resources
+    cacheControl: true,
+    maxAge: 86400000, // 1 day for static assets
+    immutable: true,
+    // Enable precompressed files if available
+    preCompressed: true
 });
 
 await app.register(fastifyMiddie);

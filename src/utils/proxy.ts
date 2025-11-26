@@ -1,11 +1,41 @@
 import { BareMuxConnection } from "@mercuryworkshop/bare-mux";
 import { StoreManager } from "./storage";
 import { initializeCaptchaHandlers } from "./captcha-handler";
+import {
+    getPreconfiguredSettings,
+    isPreconfiguredSitesEnabled,
+    isDynamicLoadingEnabled,
+    DynamicLoadingHandler,
+    resetConfigurationAttempts
+} from "./experimental";
 
-const createScript = (src: string, defer?: boolean) => {
+// Cache for URL encoding to avoid redundant computations
+const urlEncodingCache = new Map<string, string>();
+const URL_CACHE_MAX_SIZE = 500;
+const URL_CACHE_EVICT_COUNT = 50; // Evict 10% of cache
+
+// Cache for transport settings to avoid redundant storage reads
+let cachedTransportSettings: {
+    transport?: string;
+    routingMode?: string;
+    wispServer?: string;
+    adBlock?: string;
+    lastUpdate: number;
+} | null = null;
+const TRANSPORT_CACHE_TTL = 5000; // 5 seconds
+
+const createScript = (src: string, defer?: boolean): HTMLScriptElement => {
+    // Check if script already exists to avoid duplicate loading
+    const existingScript = document.querySelector(`script[src="${src}"]`);
+    if (existingScript) {
+        return existingScript as HTMLScriptElement;
+    }
+
     const script = document.createElement("script") as HTMLScriptElement;
     script.src = src;
     if (defer) script.defer = defer;
+    // Add async loading for better performance
+    script.async = false; // Keep execution order
     return document.body.appendChild(script);
 };
 
@@ -31,6 +61,7 @@ class SW {
     #serviceWorker?: ServiceWorkerRegistration;
     #storageManager: StoreManager<"radius||settings">;
     #ready: Promise<void>;
+    #dynamicLoadingHandler?: DynamicLoadingHandler;
     static #instance = new Set();
 
     static *getInstance() {
@@ -59,20 +90,135 @@ class SW {
         return template.replace("%s", encodeURIComponent(input));
     }
 
+    /**
+     * Apply preconfigured settings for a URL if available and enabled
+     */
+    async applyPreconfiguredSettings(url: string): Promise<boolean> {
+        if (!isPreconfiguredSitesEnabled()) return false;
+
+        const settings = getPreconfiguredSettings(url);
+        if (!settings) return false;
+
+        // Apply the preconfigured settings
+        this.#storageManager.setVal("proxy", settings.proxy);
+
+        if (settings.routingMode) {
+            await this.routingMode(settings.routingMode, false);
+        }
+
+        if (settings.transport) {
+            await this.setTransport(settings.transport);
+        } else {
+            await this.setTransport();
+        }
+
+        this.#invalidateTransportCache();
+        return true;
+    }
+
     encodeURL(string: string): string {
+        // Check cache first
+        const cacheKey = `${this.#storageManager.getVal("proxy") || "uv"}:${string}`;
+        const cached = urlEncodingCache.get(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
         const proxy = this.#storageManager.getVal("proxy") as "uv" | "sj";
         const input = this.search(string, this.#storageManager.getVal("searchEngine"));
-        return proxy === "uv"
-            ? `${__uv$config.prefix}${__uv$config.encodeUrl!(input)}`
-            : this.#scramjetController!.encodeUrl(input);
+        const encoded =
+            proxy === "uv"
+                ? `${__uv$config.prefix}${__uv$config.encodeUrl!(input)}`
+                : this.#scramjetController!.encodeUrl(input);
+
+        // Cache the result with iterator-based eviction
+        if (urlEncodingCache.size >= URL_CACHE_MAX_SIZE) {
+            // Remove oldest entries using iterator to avoid array allocation
+            let evicted = 0;
+            for (const key of urlEncodingCache.keys()) {
+                if (evicted >= URL_CACHE_EVICT_COUNT) break;
+                urlEncodingCache.delete(key);
+                evicted++;
+            }
+        }
+        urlEncodingCache.set(cacheKey, encoded);
+
+        return encoded;
+    }
+
+    /**
+     * Encode URL with experimental features support
+     * This method applies preconfigured settings if enabled before encoding
+     */
+    async encodeURLWithExperiments(url: string): Promise<string> {
+        // Reset configuration attempts for new URL
+        resetConfigurationAttempts(url);
+
+        // Apply preconfigured settings if available
+        await this.applyPreconfiguredSettings(url);
+
+        // Start dynamic loading if enabled
+        if (isDynamicLoadingEnabled() && !this.#dynamicLoadingHandler) {
+            this.#dynamicLoadingHandler = new DynamicLoadingHandler();
+            this.#dynamicLoadingHandler.start(
+                async (config) => {
+                    // Apply new configuration
+                    this.#storageManager.setVal("proxy", config.proxy);
+                    await this.routingMode(config.routingMode, false);
+                    if (config.transport) {
+                        await this.setTransport(config.transport);
+                    } else {
+                        await this.setTransport();
+                    }
+                    this.#invalidateTransportCache();
+                    // Clear URL cache to re-encode with new settings
+                    urlEncodingCache.clear();
+                },
+                () => {
+                    // All configurations failed - redirect to 404
+                    window.location.href = "/404";
+                }
+            );
+        }
+
+        return this.encodeURL(url);
+    }
+
+    // Helper method to get cached transport settings
+    #getTransportSettings() {
+        const now = Date.now();
+        if (
+            cachedTransportSettings &&
+            now - cachedTransportSettings.lastUpdate < TRANSPORT_CACHE_TTL
+        ) {
+            return cachedTransportSettings;
+        }
+
+        cachedTransportSettings = {
+            transport: this.#storageManager.getVal("transport"),
+            routingMode: this.#storageManager.getVal("routingMode"),
+            wispServer: this.#storageManager.getVal("wispServer"),
+            adBlock: this.#storageManager.getVal("adBlock"),
+            lastUpdate: now
+        };
+
+        return cachedTransportSettings;
+    }
+
+    // Invalidate transport cache when settings change
+    #invalidateTransportCache() {
+        cachedTransportSettings = null;
     }
 
     async setTransport(transport?: "epoxy" | "libcurl", get?: boolean) {
-        console.log("Setting transport");
-        const routingMode = this.#storageManager.getVal("routingMode") || "wisp";
+        const settings = this.#getTransportSettings();
+        const routingMode = settings.routingMode || "wisp";
+
         const wispServer = (): string => {
-            const wispServerVal = this.#storageManager.getVal("wispServer");
-            if (this.#storageManager.getVal("adBlock") === "true") {
+            const wispServerVal =
+                settings.wispServer ||
+                (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wisp/";
+            if (settings.adBlock === "true") {
                 return wispServerVal.replace("/wisp/", "/adblock/");
             }
             return wispServerVal;
@@ -82,37 +228,21 @@ class SW {
                 (location.protocol === "https:" ? "https://" : "http://") + location.host + "/bare/"
             );
         };
-        if (get) return this.#storageManager.getVal("transport");
-        this.#storageManager.setVal(
-            "transport",
-            transport || this.#storageManager.getVal("transport") || "epoxy"
-        );
+        if (get) return settings.transport;
+
+        const newTransport = transport || settings.transport || "epoxy";
+        this.#storageManager.setVal("transport", newTransport);
+        this.#invalidateTransportCache();
 
         if (routingMode === "bare") {
             // Use bare server transport
             await this.#baremuxConn!.setTransport("/baremod/index.mjs", [bareServer()]);
         } else {
             // Use wisp server transport (default)
-            switch (transport) {
-                case "epoxy": {
-                    await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [
-                        { wisp: wispServer() }
-                    ]);
-                    break;
-                }
-                case "libcurl": {
-                    await this.#baremuxConn!.setTransport("/libcurl/index.mjs", [
-                        { wisp: wispServer() }
-                    ]);
-                    break;
-                }
-                default: {
-                    await this.#baremuxConn!.setTransport("/epoxy/index.mjs", [
-                        { wisp: wispServer() }
-                    ]);
-                    break;
-                }
-            }
+            // Optimize transport path selection
+            const transportPath =
+                newTransport === "libcurl" ? "/libcurl/index.mjs" : "/epoxy/index.mjs";
+            await this.#baremuxConn!.setTransport(transportPath, [{ wisp: wispServer() }]);
         }
     }
 
@@ -121,25 +251,29 @@ class SW {
             "routingMode",
             mode || this.#storageManager.getVal("routingMode") || "wisp"
         );
+        this.#invalidateTransportCache();
         if (set) await this.setTransport();
     }
 
     async wispServer(wispServer?: string, set?: true) {
-        console.log(wispServer?.replace("/wisp/", "/adblock/"));
         this.#storageManager.setVal(
             "wispServer",
             wispServer ||
                 this.#storageManager.getVal("wispServer") ||
                 (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/wisp/"
         );
+        this.#invalidateTransportCache();
         if (set) await this.setTransport();
     }
 
     constructor() {
         SW.#instance.add(this);
         this.#storageManager = new StoreManager("radius||settings");
+
+        // Optimized script loading check with debounced interval
         const checkScripts = (): Promise<void> => {
             return new Promise((resolve) => {
+                // Use a reasonable interval (16ms = ~60fps) instead of default
                 const t = setInterval(() => {
                     if (
                         typeof __uv$config !== "undefined" &&
@@ -148,9 +282,11 @@ class SW {
                         clearInterval(t);
                         resolve();
                     }
-                });
+                }, 16);
             });
         };
+
+        // Load scripts in optimal order
         createScript("/vu/uv.bundle.js", true);
         createScript("/vu/uv.config.js", true);
         createScript("/marcs/scramjet.all.js", true);
@@ -184,7 +320,6 @@ class SW {
             if ("serviceWorker" in navigator) {
                 await this.#scramjetController.init();
                 navigator.serviceWorker.ready.then(async (reg) => {
-                    console.log("SW ready to go!");
                     this.#serviceWorker = reg;
 
                     // Initialize CAPTCHA handlers for automatic verification support
