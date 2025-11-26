@@ -205,19 +205,6 @@ const INTERCEPTOR_SCRIPT = `
         return null;
     };
     
-    // Enhanced postMessage handler for CAPTCHA communication
-    // NOTE: Using '*' as targetOrigin is required in proxy environment because
-    // CAPTCHA domains are rewritten and cross-origin checks would fail otherwise.
-    // This is a necessary tradeoff for CAPTCHA functionality within the proxy.
-    var originalPostMessage = window.postMessage;
-    window.postMessage = function(message, targetOrigin, transfer) {
-        // Allow all CAPTCHA-related postMessage communications
-        if (targetOrigin && isCaptchaUrl(targetOrigin)) {
-            targetOrigin = '*';
-        }
-        return originalPostMessage.call(window, message, targetOrigin, transfer);
-    };
-    
     // Monitor for CAPTCHA iframes and ensure proper setup
     function setupCaptchaIframe(iframe) {
         var src = iframe.src || iframe.getAttribute('src') || '';

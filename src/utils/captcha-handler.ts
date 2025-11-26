@@ -275,15 +275,11 @@ function enhanceStoragePersistence() {
 }
 
 /**
- * Setup postMessage handler to enable CAPTCHA communication
+ * Setup message handler to listen for CAPTCHA-related messages
  * This ensures that CAPTCHA widgets can communicate with their parent pages
- *
- * NOTE: Using '*' as targetOrigin is required in proxy environment because
- * CAPTCHA domains are rewritten and cross-origin checks would fail otherwise.
- * This is a necessary tradeoff for CAPTCHA functionality within the proxy.
  */
 function setupPostMessageHandler() {
-    // Listen for CAPTCHA-related messages
+    // Listen for CAPTCHA-related messages and allow them to be processed normally
     window.addEventListener("message", (event) => {
         // Check if this is a CAPTCHA-related message
         const origin = event.origin || "";
@@ -297,26 +293,9 @@ function setupPostMessageHandler() {
             return;
         }
     });
-
-    // Enhance postMessage to allow CAPTCHA communication
-    const originalPostMessage = window.postMessage.bind(window);
-    window.postMessage = function (
-        message: unknown,
-        targetOrigin: string,
-        transfer?: Transferable[]
-    ) {
-        // Check if target is a CAPTCHA origin
-        if (targetOrigin && targetOrigin !== "*") {
-            const isCaptchaTarget = CAPTCHA_DOMAINS.some((domain) =>
-                targetOrigin.toLowerCase().includes(domain)
-            );
-            // For CAPTCHA targets, use wildcard to avoid cross-origin issues in proxy
-            if (isCaptchaTarget) {
-                targetOrigin = "*";
-            }
-        }
-        return originalPostMessage(message, targetOrigin, transfer);
-    };
+    // Note: We don't override postMessage as it can break transferable objects
+    // like MessagePort. The proxy should handle cross-origin issues at the
+    // service worker level instead.
 }
 
 /**
