@@ -4,7 +4,7 @@
     </a>
     </p>
 <h1 align="center" id="readme-top">Radius</h1>
-<h2 align="center" id="readme-top">Radius is a simple and clean web proxy designed for speed and ease-of-use, made in Astro (basead on the origonal Radius Proxy with updated, modernized fetures!).</h2>
+<p align="center" id="readme-top">Radius is a simple and clean web proxy designed for speed and ease-of-use, made in Astro (basead on the origonal Radius Proxy with updated, modernized fetures!).</p>
 <p align="center">
 </p>
 
@@ -185,6 +185,7 @@ If you can not deploy, visit a example deployment with Radius using QuickDeploy 
 [proudparrot2](https://github.com/proudparrot2) - Founder and original dev of Radius <br>
 [MotorTruck1221](https://github.com/motortruck1221) - Astro rewrite and lead dev of Radius <br>
 [All of the contributors!](https://github.com/sriail/Radius/graphs/contributors)
+
 
 
 
