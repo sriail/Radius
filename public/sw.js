@@ -20,16 +20,27 @@ const sj = new ScramjetServiceWorker({
 // Enhanced CAPTCHA and Cloudflare verification support
 // List of CAPTCHA and verification domains that need special handling
 const CAPTCHA_DOMAINS = [
+    // reCAPTCHA domains
     "google.com/recaptcha",
     "www.google.com/recaptcha",
     "recaptcha.net",
     "www.recaptcha.net",
     "gstatic.com/recaptcha",
+    "www.gstatic.com/recaptcha",
+    // hCaptcha domains
     "hcaptcha.com",
+    "www.hcaptcha.com",
     "newassets.hcaptcha.com",
+    "assets.hcaptcha.com",
+    "imgs.hcaptcha.com",
+    "js.hcaptcha.com",
+    // Cloudflare Turnstile domains
     "challenges.cloudflare.com",
     "cloudflare.com/cdn-cgi/challenge",
-    "turnstile.cloudflare.com"
+    "turnstile.cloudflare.com",
+    // Additional verification APIs
+    "api.hcaptcha.com",
+    "api2.hcaptcha.com"
 ];
 
 // Domains that use heavy cookies and complex browser services
@@ -144,20 +155,48 @@ self.addEventListener("fetch", function (event) {
     );
 });
 
-// Script to inject into proxied pages to intercept new tab/window attempts
+// Script to inject into proxied pages for CAPTCHA support and new tab interception
 const INTERCEPTOR_SCRIPT = `
 <script>
 (function() {
-    // Intercept window.open to prevent new tabs/windows from opening
-    const originalOpen = window.open;
+    // CAPTCHA domains that should not be blocked or intercepted
+    var CAPTCHA_ORIGINS = [
+        'google.com', 'gstatic.com', 'recaptcha.net',
+        'hcaptcha.com', 'cloudflare.com', 'challenges.cloudflare.com'
+    ];
+    
+    // Check if URL is CAPTCHA-related
+    function isCaptchaUrl(url) {
+        if (!url) return false;
+        var urlLower = url.toString().toLowerCase();
+        return CAPTCHA_ORIGINS.some(function(domain) {
+            return urlLower.indexOf(domain) !== -1;
+        });
+    }
+    
+    // Initialize CAPTCHA global objects if not present
+    if (typeof window.___grecaptcha_cfg === 'undefined') {
+        window.___grecaptcha_cfg = { clients: {} };
+    }
+    if (typeof window.hcaptcha === 'undefined') {
+        window.hcaptcha = {};
+    }
+    if (typeof window.turnstile === 'undefined') {
+        window.turnstile = {};
+    }
+    
+    // Intercept window.open but allow CAPTCHA-related popups
+    var originalOpen = window.open;
     window.open = function(url, target, features) {
+        // Allow CAPTCHA-related window.open calls to work normally
+        if (isCaptchaUrl(url)) {
+            return originalOpen.call(window, url, target, features);
+        }
+        
         if (url) {
             console.log('[Proxy Interceptor] Redirecting window.open to same window:', url);
-            // Navigate in the current window instead of opening a new one
-            // The URL is already proxied at this point, so we can directly navigate
             window.location.href = url;
             
-            // Return a Proxy that mimics a Window object for compatibility
             return new Proxy({}, {
                 get: function() { return null; },
                 set: function() { return true; }
@@ -166,10 +205,39 @@ const INTERCEPTOR_SCRIPT = `
         return null;
     };
     
-    // Remove target="_blank" from all links
+    // Monitor for CAPTCHA iframes and ensure proper setup
+    function setupCaptchaIframe(iframe) {
+        var src = iframe.src || iframe.getAttribute('src') || '';
+        if (isCaptchaUrl(src)) {
+            // Remove restrictive sandbox if present
+            if (iframe.hasAttribute('sandbox')) {
+                var sandbox = iframe.sandbox;
+                if (!sandbox.contains('allow-same-origin')) sandbox.add('allow-same-origin');
+                if (!sandbox.contains('allow-scripts')) sandbox.add('allow-scripts');
+                if (!sandbox.contains('allow-forms')) sandbox.add('allow-forms');
+                if (!sandbox.contains('allow-popups')) sandbox.add('allow-popups');
+                if (!sandbox.contains('allow-popups-to-escape-sandbox')) sandbox.add('allow-popups-to-escape-sandbox');
+            }
+            
+            // Remove credentialless attribute
+            if (iframe.hasAttribute('credentialless')) {
+                iframe.removeAttribute('credentialless');
+            }
+            
+            // Ensure proper allow attribute for permissions
+            var allow = iframe.getAttribute('allow') || '';
+            if (allow.indexOf('cross-origin-isolated') === -1) {
+                iframe.setAttribute('allow', allow + (allow ? '; ' : '') + 'cross-origin-isolated');
+            }
+        }
+    }
+    
+    // Remove target="_blank" from non-CAPTCHA links
     function removeTargetBlank() {
         document.querySelectorAll('a[target="_blank"], a[target="_new"]').forEach(function(anchor) {
-            anchor.removeAttribute('target');
+            if (!isCaptchaUrl(anchor.href)) {
+                anchor.removeAttribute('target');
+            }
         });
     }
     
@@ -180,20 +248,33 @@ const INTERCEPTOR_SCRIPT = `
         removeTargetBlank();
     }
     
-    // Watch for dynamically added links
+    // Watch for dynamically added elements
     if (typeof MutationObserver !== 'undefined') {
-        const observer = new MutationObserver(function(mutations) {
+        var observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 mutation.addedNodes.forEach(function(node) {
-                    // Check if it's an Element node (nodeType === 1)
                     if (node.nodeType !== 1) return;
                     
-                    if (node.tagName === 'A' && (node.getAttribute('target') === '_blank' || node.getAttribute('target') === '_new')) {
-                        node.removeAttribute('target');
+                    // Handle iframes (CAPTCHA setup)
+                    if (node.tagName === 'IFRAME') {
+                        setupCaptchaIframe(node);
                     }
+                    
+                    // Handle links (remove target="_blank" for non-CAPTCHA)
+                    if (node.tagName === 'A') {
+                        var targetAttr = node.getAttribute('target');
+                        if ((targetAttr === '_blank' || targetAttr === '_new') && !isCaptchaUrl(node.href)) {
+                            node.removeAttribute('target');
+                        }
+                    }
+                    
+                    // Handle child elements
                     if (node.querySelectorAll) {
+                        node.querySelectorAll('iframe').forEach(setupCaptchaIframe);
                         node.querySelectorAll('a[target="_blank"], a[target="_new"]').forEach(function(anchor) {
-                            anchor.removeAttribute('target');
+                            if (!isCaptchaUrl(anchor.href)) {
+                                anchor.removeAttribute('target');
+                            }
                         });
                     }
                 });
@@ -201,6 +282,9 @@ const INTERCEPTOR_SCRIPT = `
         });
         observer.observe(document.documentElement, { childList: true, subtree: true });
     }
+    
+    // Setup existing iframes on page load
+    document.querySelectorAll('iframe').forEach(setupCaptchaIframe);
 })();
 </script>
 `;
