@@ -95,8 +95,8 @@ export function initializeCaptchaHandlers() {
                         }
 
                         // Add proper allow attributes for CAPTCHA functionality
-                        if (!node.hasAttribute("allow") || !node.getAttribute("allow")?.includes("cross-origin")) {
-                            const currentAllow = node.getAttribute("allow") || "";
+                        const currentAllow = node.getAttribute("allow") || "";
+                        if (!currentAllow.includes("cross-origin-isolated")) {
                             node.setAttribute(
                                 "allow",
                                 `${currentAllow} cross-origin-isolated; publickey-credentials-get`.trim()
