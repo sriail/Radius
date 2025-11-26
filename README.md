@@ -114,50 +114,102 @@ These variables control the rate limiting for the Bare server to prevent abuse w
 ## Don't Want To Deploy But The Link Is Inexcessable?
 Add this html script into any basic Website builder, it uses QuickDeploy to instantley open in about:blank and will work with ANY WEBSITE BUILDER or STATIC GENERATER/DEPLOYMENT!
 ```html
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radius</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /*
-        Custom CSS to ensure the HTML and IFRAME take up the entire viewport
-        and remove default margin/scrolling.
-        */
-        html, body {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
-            font-family: 'Inter', sans-serif;
-        }
-
-        iframe {
-            border: none;
-            width: 100%;
-            height: 100%;
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Loading…</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 2rem;
+    }
+    #msg {
+      max-width: 600px;
+      line-height: 1.6;
+    }
+    :root { color-scheme: light dark; }
+  </style>
 </head>
 <body>
+  <div id="msg">Attempting to open site…</div>
 
-    <!--
-    The IFRAME is set to fill the entire viewport.
-    The sandbox attribute is loaded with all possible allowed tokens for maxamum functionality
-    -->
-    <iframe
-        id="fullPageFrame"
-        src="https://example.com"
-        title="Sandboxed Content"
-        allow="fullscreen"
-        sandbox="allow-forms allow-modals allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-top-navigation allow-top-navigation-by-user-activation"
-    >
-        Your browser does not support iframes, please swich to a supported browser. You can find supported browsers at https://caniuse.com/?search=iframe or go to https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/iframe for more information.
-    </iframe>
-    <!--
-    For a custom deployment, enter your URL.
-    -->
+  <script>
+    const targetUrl = "https://studyworkandmore.uk";
+    let retryTimer = null;
+
+    function tryOpen() {
+      const msg = document.getElementById("msg");
+      msg.textContent = "Opening Popup, this should only take a few seconds…";
+
+      const popup = window.open("about:blank", "_blank");
+
+      // If blocked
+      if (!popup) {
+        msg.innerHTML = `
+          <strong>⚠ Pop-up Blocked</strong><br><br>
+          Your browser blocked the new tab.<br><br>
+          <strong>Fix:</strong><br>
+          • Chrome: Click the pop-up blocked icon → “Always allow”, and then confirm<br>
+          • Firefox: Click “Allow pop-ups” in the yellow bar<br>
+          • Edge: Same as Chrome<br><br>
+          Retrying every 3 seconds…
+        `;
+        return;
+      }
+
+      // Build contents of the about:blank tab
+      popup.opener = null;
+
+      const html = `
+        <!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <meta name="referrer" content="no-referrer">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>about:blank</title>
+          <style>
+            :root { color-scheme: light dark; }
+            html, body { height: 100%; margin: 0; }
+            iframe { 
+              width: 100%; 
+              height: 100%; 
+              border: 0; 
+            }
+          </style>
+        </head>
+        <body>
+          <iframe
+            src="${targetUrl}"
+            allow="camera; microphone; fullscreen; clipboard-read; clipboard-write; geolocation; autoplay; encrypted-media; web-share; *"
+            allowfullscreen
+            allowpaymentrequest
+            loading="eager"
+            referrerpolicy="no-referrer"
+          ></iframe>
+        </body>
+        </html>
+      `;
+
+      // Write to popup
+      popup.document.open();
+      popup.document.write(html);
+      popup.document.close();
+
+      // Success → close parent immediately
+      window.close();
+    }
+
+    // Try immediately
+    tryOpen();
+
+    // Retry every 3 seconds if blocked
+    retryTimer = setInterval(() => {
+      tryOpen();
+    }, 3000);
+  </script>
 </body>
 </html>
 ```
@@ -173,6 +225,7 @@ If you can not deploy, visit a example deployment with Radius using QuickDeploy 
 [proudparrot2](https://github.com/proudparrot2) - Founder and original dev of Radius <br>
 [MotorTruck1221](https://github.com/motortruck1221) - Astro rewrite and lead dev of Radius <br>
 [All of the contributors!](https://github.com/sriail/Radius/graphs/contributors)
+
 
 
 
