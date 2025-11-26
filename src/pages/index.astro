@@ -144,9 +144,15 @@ const link = Astro.url.searchParams.get("redir");
                 return (async () => {
                     await init();
                     try {
-                        input.value = atob(link);
+                        // Decode base64 to UTF-8 string using standard pattern
+                        input.value = decodeURIComponent(escape(atob(link)));
                     } catch (_) {
-                        input.value = link;
+                        // Fallback: try decodeURIComponent for URL-encoded values
+                        try {
+                            input.value = decodeURIComponent(link);
+                        } catch {
+                            input.value = link;
+                        }
                     }
                     input.dispatchEvent(new KeyboardEvent("keypress", { key: "Enter", code: "Enter" }));
                     history.pushState({}, "", "/");

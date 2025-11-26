@@ -129,13 +129,24 @@ import { Icon } from "astro-icon/components";
                     return;
                 }
 
-                // Regular URL handling - only if iframe exists
+                // Regular URL handling - if iframe exists, use it directly
                 if (iframe && bhl && phl) {
                     iframe.classList.remove("hidden");
                     await sw.ready();
                     iframe.src = sw.encodeURL(inputValue);
                     bhl.classList.add("hidden");
                     phl.classList.remove("hidden");
+                } else {
+                    // No iframe available (on settings or other about: pages)
+                    // Redirect to home page with the search query
+                    // Encode URL safely for base64 using standard UTF-8 pattern
+                    try {
+                        const encoded = btoa(unescape(encodeURIComponent(inputValue)));
+                        window.location.href = `/?redir=${encoded}`;
+                    } catch {
+                        // Fallback: use encodeURIComponent directly if encoding fails
+                        window.location.href = `/?redir=${encodeURIComponent(inputValue)}`;
+                    }
                 }
             }
         });
