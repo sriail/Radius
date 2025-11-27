@@ -25,11 +25,16 @@ const CAPTCHA_DOMAINS = [
     "recaptcha.net",
     "www.recaptcha.net",
     "gstatic.com/recaptcha",
+    "www.gstatic.com/recaptcha",
     "hcaptcha.com",
     "newassets.hcaptcha.com",
+    "api.hcaptcha.com",
+    "js.hcaptcha.com",
     "challenges.cloudflare.com",
     "cloudflare.com/cdn-cgi/challenge",
-    "turnstile.cloudflare.com"
+    "turnstile.cloudflare.com",
+    "cf-turnstile.com",
+    "cloudflareinsights.com"
 ];
 
 // Domains that use heavy cookies and complex browser services
@@ -47,6 +52,22 @@ const HEAVY_COOKIE_DOMAINS = [
     "apple.com",
     "netflix.com",
     "spotify.com"
+];
+
+// Allowed origins for CAPTCHA providers (for proper cross-origin messaging)
+const CAPTCHA_ALLOWED_ORIGINS = [
+    "https://www.google.com",
+    "https://google.com",
+    "https://recaptcha.net",
+    "https://www.recaptcha.net",
+    "https://gstatic.com",
+    "https://www.gstatic.com",
+    "https://hcaptcha.com",
+    "https://newassets.hcaptcha.com",
+    "https://api.hcaptcha.com",
+    "https://challenges.cloudflare.com",
+    "https://cloudflare.com",
+    "https://turnstile.cloudflare.com"
 ];
 
 // Helper function to check if URL is CAPTCHA-related
@@ -145,11 +166,152 @@ self.addEventListener("fetch", function (event) {
 });
 
 // Script to inject into proxied pages to intercept new tab/window attempts
+// and provide CAPTCHA support with proper postMessage handling
 const INTERCEPTOR_SCRIPT = `
 <script>
 (function() {
+    // CAPTCHA provider domains that should be allowed for cross-origin messaging
+    var CAPTCHA_ORIGINS = [
+        'https://www.google.com',
+        'https://google.com',
+        'https://recaptcha.net',
+        'https://www.recaptcha.net',
+        'https://gstatic.com',
+        'https://www.gstatic.com',
+        'https://hcaptcha.com',
+        'https://newassets.hcaptcha.com',
+        'https://api.hcaptcha.com',
+        'https://challenges.cloudflare.com',
+        'https://cloudflare.com',
+        'https://turnstile.cloudflare.com'
+    ];
+
+    // Fix postMessage to properly handle MessagePort transfers
+    // This prevents DataCloneError when CAPTCHA providers communicate
+    var originalPostMessage = window.postMessage;
+    if (originalPostMessage && typeof originalPostMessage === 'function') {
+        window.postMessage = function(message, targetOrigin, transfer) {
+            try {
+                // Handle both old and new signatures
+                if (typeof targetOrigin === 'object' && targetOrigin !== null && !Array.isArray(targetOrigin)) {
+                    // New signature: postMessage(message, options)
+                    var options = targetOrigin;
+                    if (options.transfer && Array.isArray(options.transfer)) {
+                        // Filter transfer to only valid transferables
+                        options.transfer = options.transfer.filter(function(item) {
+                            return item instanceof ArrayBuffer ||
+                                   item instanceof MessagePort ||
+                                   (typeof ImageBitmap !== 'undefined' && item instanceof ImageBitmap) ||
+                                   (typeof OffscreenCanvas !== 'undefined' && item instanceof OffscreenCanvas);
+                        });
+                    }
+                    return originalPostMessage.call(window, message, options);
+                }
+                
+                // Old signature: postMessage(message, targetOrigin, transfer)
+                var origin = targetOrigin || '*';
+                var validTransfer = transfer;
+                
+                if (transfer && Array.isArray(transfer)) {
+                    validTransfer = transfer.filter(function(item) {
+                        return item instanceof ArrayBuffer ||
+                               item instanceof MessagePort ||
+                               (typeof ImageBitmap !== 'undefined' && item instanceof ImageBitmap) ||
+                               (typeof OffscreenCanvas !== 'undefined' && item instanceof OffscreenCanvas);
+                    });
+                }
+                
+                return originalPostMessage.call(window, message, origin, validTransfer);
+            } catch (e) {
+                // If transfer fails, try without it
+                if (e.name === 'DataCloneError') {
+                    console.warn('[CAPTCHA Support] postMessage fallback without transfer');
+                    try {
+                        if (typeof targetOrigin === 'object' && targetOrigin !== null) {
+                            var fallbackOptions = Object.assign({}, targetOrigin);
+                            delete fallbackOptions.transfer;
+                            return originalPostMessage.call(window, message, fallbackOptions);
+                        }
+                        return originalPostMessage.call(window, message, targetOrigin || '*');
+                    } catch (e2) {
+                        console.error('[CAPTCHA Support] postMessage failed:', e2);
+                    }
+                }
+                throw e;
+            }
+        };
+    }
+
+    // Add global CAPTCHA challenge handlers to prevent ReferenceErrors
+    if (typeof window.solveSimpleChallenge === 'undefined') {
+        window.solveSimpleChallenge = function(challenge) {
+            console.log('[CAPTCHA Support] solveSimpleChallenge passthrough');
+            return challenge;
+        };
+    }
+    if (typeof window.__cf_chl_opt === 'undefined') {
+        window.__cf_chl_opt = {};
+    }
+    if (typeof window.__cf_chl_ctx === 'undefined') {
+        window.__cf_chl_ctx = {};
+    }
+
+    // Initialize reCAPTCHA configuration if not present
+    if (typeof window.___grecaptcha_cfg === 'undefined') {
+        window.___grecaptcha_cfg = { clients: {} };
+    }
+
+    // Ensure grecaptcha enterprise support
+    if (typeof window.grecaptcha === 'undefined') {
+        window.grecaptcha = {
+            enterprise: {
+                ready: function(callback) {
+                    if (typeof callback === 'function') {
+                        if (document.readyState === 'complete') {
+                            setTimeout(callback, 0);
+                        } else {
+                            window.addEventListener('load', callback);
+                        }
+                    }
+                },
+                execute: function() { return Promise.resolve(''); },
+                render: function() { return 0; }
+            },
+            ready: function(callback) {
+                if (typeof callback === 'function') {
+                    if (document.readyState === 'complete') {
+                        setTimeout(callback, 0);
+                    } else {
+                        window.addEventListener('load', callback);
+                    }
+                }
+            }
+        };
+    }
+
+    // hCaptcha placeholder
+    if (typeof window.hcaptcha === 'undefined') {
+        window.hcaptcha = {
+            render: function() { return '0'; },
+            execute: function() { return Promise.resolve(''); },
+            reset: function() {},
+            getResponse: function() { return ''; }
+        };
+    }
+
+    // Turnstile placeholder
+    if (typeof window.turnstile === 'undefined') {
+        window.turnstile = {
+            render: function() { return '0'; },
+            execute: function() { return Promise.resolve(''); },
+            reset: function() {},
+            getResponse: function() { return ''; },
+            remove: function() {}
+        };
+    }
+
     // Intercept window.open to prevent new tabs/windows from opening
-    const originalOpen = window.open;
+    var originalOpen = window.open;
     window.open = function(url, target, features) {
         if (url) {
             console.log('[Proxy Interceptor] Redirecting window.open to same window:', url);
@@ -182,7 +344,7 @@ const INTERCEPTOR_SCRIPT = `
     
     // Watch for dynamically added links
     if (typeof MutationObserver !== 'undefined') {
-        const observer = new MutationObserver(function(mutations) {
+        var observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 mutation.addedNodes.forEach(function(node) {
                     // Check if it's an Element node (nodeType === 1)
@@ -201,6 +363,8 @@ const INTERCEPTOR_SCRIPT = `
         });
         observer.observe(document.documentElement, { childList: true, subtree: true });
     }
+
+    console.log('[CAPTCHA Support] Interceptor with CAPTCHA support loaded');
 })();
 </script>
 `;
@@ -218,7 +382,8 @@ async function injectInterceptorScript(response) {
         const text = await response.text();
 
         // Check if script was already injected to prevent duplicates
-        if (text.includes("[Proxy Interceptor]")) {
+        // Look for either the old or new marker
+        if (text.includes("[CAPTCHA Support]") || text.includes("[Proxy Interceptor]")) {
             return new Response(text, {
                 status: response.status,
                 statusText: response.statusText,

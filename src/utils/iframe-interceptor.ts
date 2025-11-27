@@ -5,7 +5,31 @@
  * the proxy iframe and redirects them to navigate within the same iframe instead.
  *
  * Works with both Scramjet and Ultraviolet web proxies, as well as Coris.
+ *
+ * Enhanced with CAPTCHA support to avoid interfering with CAPTCHA iframes and
+ * proper handling of postMessage with MessagePort transfers.
  */
+
+import { fixPostMessage } from "./post-message-fix";
+
+/**
+ * CAPTCHA-related domains that should not have their windows.open intercepted
+ */
+const CAPTCHA_DOMAINS = [
+    "recaptcha",
+    "hcaptcha",
+    "turnstile",
+    "challenges.cloudflare.com",
+    "gstatic.com/recaptcha"
+];
+
+/**
+ * Check if a URL is related to a CAPTCHA provider
+ */
+function isCaptchaUrl(url: string): boolean {
+    const urlLower = url.toLowerCase();
+    return CAPTCHA_DOMAINS.some((domain) => urlLower.includes(domain));
+}
 
 /**
  * Inject interception script into the iframe's content window
@@ -24,6 +48,10 @@ export function injectIframeInterceptor(
     }
 
     try {
+        // Fix postMessage to properly handle MessagePort transfers
+        // This prevents DataCloneError when CAPTCHA providers communicate
+        fixPostMessage(iframeWindow);
+
         // Store the original window.open function
         const originalOpen = iframeWindow.open;
 
@@ -40,6 +68,13 @@ export function injectIframeInterceptor(
             }
 
             const urlString = url.toString();
+
+            // Don't intercept CAPTCHA-related window opens
+            if (isCaptchaUrl(urlString)) {
+                console.log(`[Iframe Interceptor] Allowing CAPTCHA window.open: ${urlString}`);
+                return originalOpen?.call(iframeWindow, url, target, features) || null;
+            }
+
             console.log(`[Iframe Interceptor] Intercepted window.open: ${urlString}`);
 
             // Instead of opening a new window, navigate the iframe
