@@ -25,5 +25,6 @@ self.__uv$config = {
     client: "/vu/uv.client.js",
     bundle: "/vu/uv.bundle.js",
     config: "/vu/uv.config.js",
-    sw: "/vu/uv.sw.js"
+    sw: "/vu/uv.sw.js",
+    inject: "/tab-interceptor.js" // Inject tab interceptor script
 };

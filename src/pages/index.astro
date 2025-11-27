@@ -32,7 +32,7 @@ const link = Astro.url.searchParams.get("redir");
                 </div>
             </div> */}
         </div>
-        <iframe id="iframe" class="fixed h-[calc(100%-3.5rem)] mt-14 w-full hidden bg-(--background)" />
+        <iframe id="iframe" class="fixed h-[calc(100%-3.5rem)] mt-14 w-full hidden bg-(--background)" sandbox="allow-forms allow-modals allow-pointer-lock allow-same-origin allow-scripts allow-top-navigation allow-top-navigation-by-user-activation" />
         <link-element data-link={link} />
     </div>
 </Layout>
@@ -133,7 +133,57 @@ const link = Astro.url.searchParams.get("redir");
             phlImage.src = object;
             bhl.classList.add("hidden");
             phl.classList.remove("hidden");
-        }); 
+            
+            // Inject tab interceptor into the iframe
+            // This works because proxied content is same-origin
+            try {
+                // Security: Only inject if iframe origin matches our origin
+                // Proxied content should be same-origin due to service worker rewriting
+                try {
+                    if (iframeWin!.location.origin === window.location.origin) {
+                        const script = iframeWin!.document.createElement('script');
+                        script.src = '/radius-client.js';
+                        script.async = false; // Load synchronously to ensure it runs early
+                        (iframeWin!.document.head || iframeWin!.document.documentElement).appendChild(script);
+                    } else {
+                        console.warn('Radius: Not injecting client script - iframe origin mismatch');
+                    }
+                } catch (originError) {
+                    // Cross-origin access to location.origin will throw - this is expected
+                    console.warn('Radius: Cannot check iframe origin (cross-origin)');
+                }
+            } catch (e) {
+                // This can fail if iframe is cross-origin, which is expected for non-proxied content
+                console.warn('Radius: Could not inject client script:', e);
+            }
+        });
+        
+        // Listen for messages from the radius client in the iframe
+        window.addEventListener('message', (event) => {
+            // Security: Only handle messages from our iframe
+            if (event.source !== iframeWin) {
+                return;
+            }
+            
+            // Security: Validate origin is from our domain
+            if (event.origin !== window.location.origin) {
+                console.warn('Radius: Ignoring message from untrusted origin:', event.origin);
+                return;
+            }
+            
+            // Handle radius-open-url messages
+            if (event.data && event.data.type === 'radius-open-url') {
+                const url = event.data.url;
+                // Validate URL before navigating
+                if (url && url !== 'about:blank' && (url.startsWith('http://') || url.startsWith('https://'))) {
+                    console.log('Radius: Intercepted popup, loading in iframe:', url);
+                    // Load the URL in the main iframe instead of opening a new tab
+                    iframe.src = sw.encodeURL(url);
+                } else if (url && url !== 'about:blank') {
+                    console.warn('Radius: Ignoring invalid URL:', url);
+                }
+            }
+        });
     }
 
     class CustomComponent extends HTMLElement {
