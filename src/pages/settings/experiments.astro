@@ -14,15 +14,9 @@ import { Icon } from "astro-icon/components";
         
         <div class="divide-y divide-(--border)">
             <Switch 
-                id="preconfiguredSites" 
-                label="Preconfigured Sites"
-                description="Automatically use optimal proxy configurations for sites that struggle to load. The system will detect known problematic sites and switch to a working configuration (e.g., Scramjet with Bare server for Amazon)."
-            />
-            
-            <Switch 
                 id="dynamicLoading" 
                 label="Dynamic Loading"
-                description="Monitor console for errors from Bare/Wisp servers and web proxies. When a site fails to load, automatically try different configurations. If all configurations fail, show the 404 page."
+                description="Automatically detect when a site can't load due to proxy errors and switch to a different configuration. If all configurations fail, you'll be redirected to the 404 page. Configuration changes are site-specific and revert when you leave the site."
             />
         </div>
     </div>
@@ -32,23 +26,14 @@ import { Icon } from "astro-icon/components";
     import { StoreManager } from "@utils/storage";
 
     const initExperiments = (storage: StoreManager<"radius||settings">) => {
-        const preconfiguredSitesSwitch = document.getElementById("switch-preconfiguredSites");
         const dynamicLoadingSwitch = document.getElementById("switch-dynamicLoading");
 
-        if (!preconfiguredSitesSwitch || !dynamicLoadingSwitch) return;
+        if (!dynamicLoadingSwitch) return;
 
-        // Load saved states
-        const preconfiguredSitesEnabled = storage.getVal("experimentPreconfiguredSites") === "true";
+        // Load saved state
         const dynamicLoadingEnabled = storage.getVal("experimentDynamicLoading") === "true";
 
-        // Set initial states
-        if (preconfiguredSitesEnabled) {
-            preconfiguredSitesSwitch.setAttribute("aria-checked", "true");
-            preconfiguredSitesSwitch.setAttribute("data-state", "checked");
-            const thumb = preconfiguredSitesSwitch.querySelector("span");
-            if (thumb) thumb.setAttribute("data-state", "checked");
-        }
-
+        // Set initial state
         if (dynamicLoadingEnabled) {
             dynamicLoadingSwitch.setAttribute("aria-checked", "true");
             dynamicLoadingSwitch.setAttribute("data-state", "checked");
@@ -57,11 +42,6 @@ import { Icon } from "astro-icon/components";
         }
 
         // Listen for changes
-        preconfiguredSitesSwitch.addEventListener("switch-change", (e: Event) => {
-            const customEvent = e as CustomEvent<{ checked: boolean }>;
-            storage.setVal("experimentPreconfiguredSites", customEvent.detail.checked.toString());
-        });
-
         dynamicLoadingSwitch.addEventListener("switch-change", (e: Event) => {
             const customEvent = e as CustomEvent<{ checked: boolean }>;
             storage.setVal("experimentDynamicLoading", customEvent.detail.checked.toString());
