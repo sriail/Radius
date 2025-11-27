@@ -41,6 +41,7 @@ const link = Astro.url.searchParams.get("redir");
     import { Settings } from "@utils/settings.ts";
     import { BareClient } from "@mercuryworkshop/bare-mux";
     import { setupIframeInterceptor } from "@utils/iframe-interceptor.ts";
+    import { getDynamicLoading } from "@utils/dynamic-loading.ts";
 
     const init = async () => {
         const input = document.getElementById("input") as HTMLInputElement;
@@ -64,8 +65,14 @@ const link = Astro.url.searchParams.get("redir");
         const sw = SW.getInstance().next().value!;
         await sw.ready();
         
+        // Initialize dynamic loading
+        const dynamicLoading = getDynamicLoading();
+        
         // Setup iframe interceptor to prevent new tabs/windows
         setupIframeInterceptor(iframe, (url: string) => sw.encodeURL(url));
+        
+        // Track current site URL for dynamic loading
+        let currentSiteUrl: string | null = null;
         
         input.addEventListener("keypress", async (event: any) => {
             if (event.key === "Enter") {
@@ -88,6 +95,18 @@ const link = Astro.url.searchParams.get("redir");
                 }
 
                 const settings = await Settings.getInstance();
+                
+                // If leaving a previous site, restore original config
+                if (currentSiteUrl && dynamicLoading.isEnabled()) {
+                    await dynamicLoading.onSiteLeave();
+                }
+                
+                // Notify dynamic loading of new site
+                currentSiteUrl = inputValue;
+                if (dynamicLoading.isEnabled()) {
+                    await dynamicLoading.onSiteEnter(inputValue);
+                }
+                
                 iframe.classList.remove("hidden");
                 iframe.src = sw.encodeURL(input.value); 
                 buttons();
@@ -133,7 +152,17 @@ const link = Astro.url.searchParams.get("redir");
             phlImage.src = object;
             bhl.classList.add("hidden");
             phl.classList.remove("hidden");
-        }); 
+        });
+        
+        // Handle page unload to restore config (synchronous cleanup)
+        // Use both beforeunload and pagehide for better cross-browser support
+        const cleanupHandler = () => {
+            if (currentSiteUrl && dynamicLoading.isEnabled()) {
+                dynamicLoading.cleanupSync();
+            }
+        };
+        window.addEventListener("beforeunload", cleanupHandler);
+        window.addEventListener("pagehide", cleanupHandler);
     }
 
     class CustomComponent extends HTMLElement {

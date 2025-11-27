@@ -1,6 +1,7 @@
 import { BareMuxConnection } from "@mercuryworkshop/bare-mux";
 import { StoreManager } from "./storage";
 import { initializeCaptchaHandlers } from "./captcha-handler";
+import { getDynamicLoading } from "./dynamic-loading";
 
 const createScript = (src: string, defer?: boolean) => {
     const script = document.createElement("script") as HTMLScriptElement;
@@ -46,6 +47,13 @@ class SW {
         return this.#ready;
     }
 
+    /**
+     * Get the BareMux connection instance for dynamic loading
+     */
+    getBareMuxConnection(): BareMuxConnection | undefined {
+        return this.#baremuxConn;
+    }
+
     search(input: string, template: string) {
         try {
             return new URL(input).toString();
@@ -60,7 +68,11 @@ class SW {
     }
 
     encodeURL(string: string): string {
-        const proxy = this.#storageManager.getVal("proxy") as "uv" | "sj";
+        // Check if dynamic loading has an active override
+        const dynamicLoading = getDynamicLoading();
+        const proxy = dynamicLoading.isEnabled()
+            ? dynamicLoading.getActiveProxy()
+            : (this.#storageManager.getVal("proxy") as "uv" | "sj");
         const input = this.search(string, this.#storageManager.getVal("searchEngine"));
         return proxy === "uv"
             ? `${__uv$config.prefix}${__uv$config.encodeUrl!(input)}`
@@ -158,6 +170,10 @@ class SW {
         this.#ready = checkScripts().then(async () => {
             this.#baremuxConn = new BareMuxConnection("/erab/worker.js");
             await this.setTransport();
+
+            // Initialize dynamic loading with BareMux connection
+            const dynamicLoading = getDynamicLoading();
+            await dynamicLoading.init(this.#baremuxConn);
 
             // Load the ScramjetController class from the factory function
             const { ScramjetController } = $scramjetLoadController();
