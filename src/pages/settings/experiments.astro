@@ -42,9 +42,12 @@ import { Icon } from "astro-icon/components";
         }
 
         // Listen for changes
-        dynamicLoadingSwitch.addEventListener("switch-change", (e: Event) => {
+        dynamicLoadingSwitch.addEventListener("switch-change", async (e: Event) => {
             const customEvent = e as CustomEvent<{ checked: boolean }>;
             storage.setVal("experimentDynamicLoading", customEvent.detail.checked.toString());
+            // Sync the state with the DynamicLoading instance
+            const { getDynamicLoading } = await import("@utils/dynamic-loading");
+            getDynamicLoading().setEnabled(customEvent.detail.checked);
         });
     };
 

@@ -154,12 +154,15 @@ const link = Astro.url.searchParams.get("redir");
             phl.classList.remove("hidden");
         });
         
-        // Handle page unload to restore config
-        window.addEventListener("beforeunload", async () => {
+        // Handle page unload to restore config (synchronous cleanup)
+        // Use both beforeunload and pagehide for better cross-browser support
+        const cleanupHandler = () => {
             if (currentSiteUrl && dynamicLoading.isEnabled()) {
-                await dynamicLoading.onSiteLeave();
+                dynamicLoading.cleanupSync();
             }
-        });
+        };
+        window.addEventListener("beforeunload", cleanupHandler);
+        window.addEventListener("pagehide", cleanupHandler);
     }
 
     class CustomComponent extends HTMLElement {

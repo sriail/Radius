@@ -114,11 +114,11 @@ class DynamicLoading {
     #errorBuffer: string[] = [];
     #errorCheckTimeout: number | null = null;
     #siteOverrides: Map<string, number> = new Map(); // Maps site domain to config index
+    #originalConsoleError: ((...args: unknown[]) => void) | null = null;
+    #errorListenersAttached: boolean = false;
 
     // Error threshold before switching configs
     static readonly ERROR_THRESHOLD = 3;
-    // Time window to collect errors (ms)
-    static readonly ERROR_WINDOW = 2000;
     // Debounce time for error checking (ms)
     static readonly DEBOUNCE_TIME = 500;
 
@@ -175,7 +175,14 @@ class DynamicLoading {
             const stored = this.#storageManager.getVal("dynamicLoadingOverrides");
             if (stored) {
                 const parsed = JSON.parse(stored);
-                this.#siteOverrides = new Map(Object.entries(parsed));
+                this.#siteOverrides = new Map(
+                    Object.entries(parsed)
+                        .map(([k, v]) => {
+                            const num = parseInt(String(v), 10);
+                            return [k, Number.isNaN(num) ? 0 : num];
+                        })
+                        .filter(([, v]) => typeof v === "number") as [string, number][]
+                );
             }
         } catch {
             this.#siteOverrides = new Map();
@@ -206,12 +213,19 @@ class DynamicLoading {
      * Set up console error listeners to detect critical errors
      */
     #setupErrorListeners(): void {
-        // Override console.error to capture errors
-        const originalError = console.error;
-        console.error = (...args: unknown[]) => {
-            originalError.apply(console, args);
-            if (this.#isEnabled && this.#currentSite) {
-                this.#handleError(args.map((a) => String(a)).join(" "));
+        // Only attach listeners once
+        if (this.#errorListenersAttached) {
+            return;
+        }
+        this.#errorListenersAttached = true;
+
+        // Store and override console.error to capture errors
+        this.#originalConsoleError = console.error;
+        const self = this;
+        console.error = function (...args: unknown[]) {
+            self.#originalConsoleError!.apply(console, args);
+            if (self.#isEnabled && self.#currentSite) {
+                self.#handleError(args.map((a) => String(a)).join(" "));
             }
         };
 
@@ -228,6 +242,16 @@ class DynamicLoading {
                 this.#handleError(String(event.reason));
             }
         });
+    }
+
+    /**
+     * Restore original console.error method
+     */
+    restoreConsoleError(): void {
+        if (this.#originalConsoleError) {
+            console.error = this.#originalConsoleError;
+            this.#originalConsoleError = null;
+        }
     }
 
     /**
@@ -420,6 +444,27 @@ class DynamicLoading {
         await this.#applyConfig(this.#originalConfig);
 
         // Reset state
+        this.#resetState();
+    }
+
+    /**
+     * Synchronous cleanup for use in beforeunload/pagehide handlers
+     * Clears session storage without async operations
+     */
+    cleanupSync(): void {
+        if (!this.#isEnabled) {
+            return;
+        }
+        sessionStorage.removeItem("dynamicLoading_proxy");
+        sessionStorage.removeItem("dynamicLoading_transport");
+        sessionStorage.removeItem("dynamicLoading_routingMode");
+        this.#resetState();
+    }
+
+    /**
+     * Internal state reset helper
+     */
+    #resetState(): void {
         this.#currentSite = null;
         this.#errorCount = 0;
         this.#configIndex = 0;
