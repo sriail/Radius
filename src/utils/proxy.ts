@@ -56,7 +56,9 @@ class SW {
             if (url.hostname.includes(".")) return url.toString();
         } catch (_) {}
 
-        return template.replace("%s", encodeURIComponent(input));
+        // Use DuckDuckGo as fallback if no template provided
+        const searchTemplate = template || "https://duckduckgo.com/?q=%s";
+        return searchTemplate.replace("%s", encodeURIComponent(input));
     }
 
     encodeURL(string: string): string {
