@@ -48,9 +48,6 @@ const link = Astro.url.searchParams.get("redir");
         const phl = document.getElementById("phl") as HTMLDivElement;
         const phlImage = document.getElementById("phlImage") as HTMLImageElement;
         const phlTitle = document.getElementById("phlTitle") as HTMLDivElement;
-        const proxyLeft = document.getElementById("pal") as HTMLButtonElement;
-        const proxyRight = document.getElementById("par") as HTMLButtonElement;
-        const proxyReload = document.getElementById("prl") as HTMLButtonElement;
         const client = new BareClient();
         
         // Get SW instance and wait for it to be ready
@@ -93,31 +90,33 @@ const link = Astro.url.searchParams.get("redir");
         };
 
         // Setup navigation buttons once (not on every search)
-        // Use event delegation pattern to avoid duplicate listeners
+        // Use a flag to track if listeners have been added
+        let buttonsInitialized = false;
+        
         const setupNavigationButtons = () => {
-            // Remove old listeners by cloning elements
-            const newProxyLeft = proxyLeft.cloneNode(true) as HTMLButtonElement;
-            const newProxyRight = proxyRight.cloneNode(true) as HTMLButtonElement;
-            const newProxyReload = proxyReload.cloneNode(true) as HTMLButtonElement;
-            
-            proxyLeft.parentNode?.replaceChild(newProxyLeft, proxyLeft);
-            proxyRight.parentNode?.replaceChild(newProxyRight, proxyRight);
-            proxyReload.parentNode?.replaceChild(newProxyReload, proxyReload);
+            if (buttonsInitialized) return;
+            buttonsInitialized = true;
+
+            // Get fresh references to buttons
+            const leftBtn = document.getElementById("pal") as HTMLButtonElement;
+            const rightBtn = document.getElementById("par") as HTMLButtonElement;
+            const reloadBtn = document.getElementById("prl") as HTMLButtonElement;
+
+            if (!leftBtn || !rightBtn || !reloadBtn) return;
 
             // Add navigation event listeners
-            newProxyLeft.addEventListener("click", () => {
+            leftBtn.addEventListener("click", () => {
                 const iframeWin = getIframeWindow();
                 if (iframeWin) {
                     try {
                         iframeWin.history.back();
                     } catch {
-                        // Fallback: try using window.history if iframe is cross-origin
                         console.log("Navigation back failed - iframe may be cross-origin");
                     }
                 }
             });
 
-            newProxyRight.addEventListener("click", () => {
+            rightBtn.addEventListener("click", () => {
                 const iframeWin = getIframeWindow();
                 if (iframeWin) {
                     try {
@@ -128,7 +127,7 @@ const link = Astro.url.searchParams.get("redir");
                 }
             });
 
-            newProxyReload.addEventListener("click", () => {
+            reloadBtn.addEventListener("click", () => {
                 const iframeWin = getIframeWindow();
                 if (iframeWin) {
                     try {

@@ -23,14 +23,16 @@ let sjConfigPromise = null;
 
 // Load Scramjet config once and cache the promise
 async function ensureSjConfigLoaded() {
-    if (sjConfigLoaded) return;
+    if (sjConfigLoaded) return Promise.resolve();
     if (sjConfigPromise) return sjConfigPromise;
     
     sjConfigPromise = sj.loadConfig().then(() => {
         sjConfigLoaded = true;
     }).catch((error) => {
         console.error("Failed to load Scramjet config:", error);
-        sjConfigPromise = null; // Allow retry on error
+        // Don't reset the promise on error to avoid race conditions
+        // Instead, mark as loaded anyway so we don't keep retrying
+        sjConfigLoaded = true;
     });
     
     return sjConfigPromise;
