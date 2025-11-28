@@ -56,15 +56,22 @@ class SW {
             if (url.hostname.includes(".")) return url.toString();
         } catch (_) {}
 
-        return template.replace("%s", encodeURIComponent(input));
+        // Use DuckDuckGo as fallback if no template provided
+        const searchTemplate = template || "https://duckduckgo.com/?q=%s";
+        return searchTemplate.replace("%s", encodeURIComponent(input));
     }
 
     encodeURL(string: string): string {
         const proxy = this.#storageManager.getVal("proxy") as "uv" | "sj";
         const input = this.search(string, this.#storageManager.getVal("searchEngine"));
-        return proxy === "uv"
-            ? `${__uv$config.prefix}${__uv$config.encodeUrl!(input)}`
-            : this.#scramjetController!.encodeUrl(input);
+        
+        // If Scramjet is selected but controller isn't ready, fall back to UV
+        if (proxy === "sj" && this.#scramjetController) {
+            return this.#scramjetController.encodeUrl(input);
+        }
+        
+        // Default to UV encoding
+        return `${__uv$config.prefix}${__uv$config.encodeUrl!(input)}`;
     }
 
     async setTransport(transport?: "epoxy" | "libcurl", get?: boolean) {

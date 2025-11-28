@@ -38,26 +38,16 @@ const link = Astro.url.searchParams.get("redir");
 </Layout>
 <script>
     import { SW } from "@utils/proxy.ts";
-    import { Settings } from "@utils/settings.ts";
     import { BareClient } from "@mercuryworkshop/bare-mux";
     import { setupIframeInterceptor } from "@utils/iframe-interceptor.ts";
 
     const init = async () => {
         const input = document.getElementById("input") as HTMLInputElement;
         const iframe = document.getElementById("iframe") as HTMLIFrameElement;
-        const iframeWin = iframe.contentWindow;
         const bhl = document.getElementById("bhl") as HTMLDivElement;
         const phl = document.getElementById("phl") as HTMLDivElement;
         const phlImage = document.getElementById("phlImage") as HTMLImageElement;
         const phlTitle = document.getElementById("phlTitle") as HTMLDivElement;
-        const proxyLeft = document.getElementById("pal") as HTMLButtonElement;
-        const proxyRight = document.getElementById("par") as HTMLButtonElement;
-        const proxyReload = document.getElementById("prl") as HTMLButtonElement;
-        const proxyShortcut = {
-            button: document.getElementById("psc") as HTMLButtonElement,
-            noShortcut: document.getElementById("noShortcut") as HTMLElement,
-            shortcut: document.getElementById("shortcut") as HTMLElement
-        }
         const client = new BareClient();
         
         // Get SW instance and wait for it to be ready
@@ -66,6 +56,94 @@ const link = Astro.url.searchParams.get("redir");
         
         // Setup iframe interceptor to prevent new tabs/windows
         setupIframeInterceptor(iframe, (url: string) => sw.encodeURL(url));
+
+        // Helper function to get the current iframe window safely
+        const getIframeWindow = (): Window | null => {
+            try {
+                return iframe.contentWindow;
+            } catch {
+                return null;
+            }
+        };
+
+        const getURL = async (): Promise<string> => {
+            const iframeWin = getIframeWindow();
+            if (!iframeWin) return "";
+            
+            try {
+                if (iframeWin.__uv) {
+                    return iframeWin.__uv.location.href;
+                }
+                else if (iframeWin.$scramjet?.config?.prefix) {
+                    return iframeWin.location.href
+                        .replace(iframeWin.location.origin, '')
+                        .replace(iframeWin.$scramjet.config.prefix, '');
+                }
+                else {
+                    // Fallback if neither proxy is available
+                    return iframeWin.location.href;
+                }
+            } catch {
+                // Cross-origin access error - try to extract from iframe src
+                return "";
+            }
+        };
+
+        // Setup navigation buttons once (not on every search)
+        // Use a flag to track if listeners have been added
+        let buttonsInitialized = false;
+        
+        const setupNavigationButtons = () => {
+            if (buttonsInitialized) return;
+            buttonsInitialized = true;
+
+            // Get fresh references to buttons
+            const leftBtn = document.getElementById("pal") as HTMLButtonElement;
+            const rightBtn = document.getElementById("par") as HTMLButtonElement;
+            const reloadBtn = document.getElementById("prl") as HTMLButtonElement;
+
+            if (!leftBtn || !rightBtn || !reloadBtn) return;
+
+            // Add navigation event listeners
+            leftBtn.addEventListener("click", () => {
+                const iframeWin = getIframeWindow();
+                if (iframeWin) {
+                    try {
+                        iframeWin.history.back();
+                    } catch {
+                        console.log("Navigation back failed - iframe may be cross-origin");
+                    }
+                }
+            });
+
+            rightBtn.addEventListener("click", () => {
+                const iframeWin = getIframeWindow();
+                if (iframeWin) {
+                    try {
+                        iframeWin.history.forward();
+                    } catch {
+                        console.log("Navigation forward failed - iframe may be cross-origin");
+                    }
+                }
+            });
+
+            reloadBtn.addEventListener("click", () => {
+                const iframeWin = getIframeWindow();
+                if (iframeWin) {
+                    try {
+                        iframeWin.location.reload();
+                    } catch {
+                        // Fallback: reload iframe by resetting src
+                        const currentSrc = iframe.src;
+                        iframe.src = "";
+                        iframe.src = currentSrc;
+                    }
+                }
+            });
+        };
+
+        // Setup navigation buttons immediately
+        setupNavigationButtons();
         
         input.addEventListener("keypress", async (event: any) => {
             if (event.key === "Enter") {
@@ -87,50 +165,32 @@ const link = Astro.url.searchParams.get("redir");
                     }
                 }
 
-                const settings = await Settings.getInstance();
                 iframe.classList.remove("hidden");
                 iframe.src = sw.encodeURL(input.value); 
-                buttons();
             }
         });
 
-        const getURL = async (): Promise<string> => {
-            if (iframeWin!.__uv) {
-                return iframeWin!.__uv.location.href
-            }
-            else if (iframeWin!.$scramjet?.config?.prefix) {
-                return iframeWin!.location.href
-                    .replace(iframeWin!.location.origin, '')
-                    .replace(iframeWin!.$scramjet.config.prefix, '')
-            }
-            else {
-                // Fallback if neither proxy is available
-                return iframeWin!.location.href;
-            }
-        }
-
-        const buttons = () => {
-            proxyLeft.addEventListener("click", () => {
-                iframeWin!.history.back();
-            });
-            proxyRight.addEventListener("click", () => {
-                iframeWin!.history.forward();
-            });
-            proxyReload.addEventListener("click", () => {
-                iframeWin!.location.reload();
-            });
-            /** proxyShortcut.button.addEventListener("click", () => {
-                console.log("yet to be implemented");
-            }); */
-        }
-
         iframe.addEventListener("load", async () => {
-            phlTitle.innerHTML = iframeWin!.document.title;
+            const iframeWin = getIframeWindow();
+            if (!iframeWin) return;
+            
+            try {
+                phlTitle.innerHTML = iframeWin.document.title || "Loading...";
+            } catch {
+                phlTitle.innerHTML = "Loading...";
+            }
+            
             const pageURL = await getURL();
-            const data = await client.fetch(`https://www.google.com/s2/favicons?domain=${pageURL}&sz=64`);
-            const dataRes = await data.blob();
-            const object = URL.createObjectURL(dataRes);
-            phlImage.src = object;
+            if (pageURL) {
+                try {
+                    const data = await client.fetch(`https://www.google.com/s2/favicons?domain=${pageURL}&sz=64`);
+                    const dataRes = await data.blob();
+                    const object = URL.createObjectURL(dataRes);
+                    phlImage.src = object;
+                } catch {
+                    // Favicon fetch failed, use default
+                }
+            }
             bhl.classList.add("hidden");
             phl.classList.remove("hidden");
         }); 

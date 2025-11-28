@@ -73,11 +73,21 @@ class Settings {
     }
 
     proxy(prox?: "uv" | "sj") {
-        this.#storageManager.setVal("proxy", prox || "uv");
+        // Only set if explicitly provided or if no value exists
+        if (prox) {
+            this.#storageManager.setVal("proxy", prox);
+        } else if (!this.#storageManager.getVal("proxy")) {
+            this.#storageManager.setVal("proxy", "uv");
+        }
     }
 
     searchEngine(engine?: string) {
-        this.#storageManager.setVal("searchEngine", engine || SearchEngines.DuckDuckGo);
+        // Only set if explicitly provided or if no value exists
+        if (engine) {
+            this.#storageManager.setVal("searchEngine", engine);
+        } else if (!this.#storageManager.getVal("searchEngine")) {
+            this.#storageManager.setVal("searchEngine", SearchEngines.DuckDuckGo);
+        }
     }
 
     cloak(location: string) {
@@ -125,7 +135,8 @@ class Settings {
     adBlock(enabled?: boolean) {
         if (enabled === true || enabled === false) {
             this.#storageManager.setVal("adBlock", enabled.valueOf().toString());
-        } else {
+        } else if (!this.#storageManager.getVal("adBlock")) {
+            // Only set default if no value exists
             this.#storageManager.setVal("adBlock", "true");
         }
     }

@@ -17,6 +17,27 @@ const sj = new ScramjetServiceWorker({
     }
 });
 
+// Flag to track if Scramjet config is loaded
+let sjConfigLoaded = false;
+let sjConfigPromise = null;
+
+// Load Scramjet config once and cache the promise
+async function ensureSjConfigLoaded() {
+    if (sjConfigLoaded) return Promise.resolve();
+    if (sjConfigPromise) return sjConfigPromise;
+    
+    sjConfigPromise = sj.loadConfig().then(() => {
+        sjConfigLoaded = true;
+    }).catch((error) => {
+        console.error("Failed to load Scramjet config:", error);
+        // Don't reset the promise on error to avoid race conditions
+        // Instead, mark as loaded anyway so we don't keep retrying
+        sjConfigLoaded = true;
+    });
+    
+    return sjConfigPromise;
+}
+
 // Enhanced CAPTCHA and Cloudflare verification support
 // List of CAPTCHA and verification domains that need special handling
 const CAPTCHA_DOMAINS = [
@@ -95,12 +116,11 @@ self.addEventListener("fetch", function (event) {
     event.respondWith(
         (async () => {
             try {
-                await sj.loadConfig();
+                // Load Scramjet config once (cached)
+                await ensureSjConfigLoaded();
 
                 const url = event.request.url;
-                const isCaptcha = isCaptchaRequest(url);
-                const isHeavyCookie = isHeavyCookieSite(url);
-
+                
                 // Safely check if this is a proxied request using optional chaining
                 const uvPrefix =
                     (typeof __uv$config !== "undefined" && __uv$config?.prefix) || null;
@@ -108,12 +128,17 @@ self.addEventListener("fetch", function (event) {
                 const isSjRequest = sj.route(event);
                 const isProxiedRequest = isUvRequest || isSjRequest;
 
-                // Enhanced handling for CAPTCHA and heavy cookie requests
+                // Only check for special handling if it's a proxied request
                 let request = event.request;
-                if (isCaptcha) {
-                    request = enhanceCaptchaRequest(event.request);
-                } else if (isHeavyCookie) {
-                    request = enhanceHeavyCookieRequest(event.request);
+                if (isProxiedRequest) {
+                    const isCaptcha = isCaptchaRequest(url);
+                    const isHeavyCookie = isHeavyCookieSite(url);
+                    
+                    if (isCaptcha) {
+                        request = enhanceCaptchaRequest(event.request);
+                    } else if (isHeavyCookie) {
+                        request = enhanceHeavyCookieRequest(event.request);
+                    }
                 }
 
                 let response;
@@ -268,6 +293,8 @@ self.addEventListener("activate", function (event) {
             try {
                 // Claim all clients to ensure the service worker takes control immediately
                 await self.clients.claim();
+                // Pre-load Scramjet config during activation for faster first requests
+                await ensureSjConfigLoaded();
             } catch (error) {
                 console.error("Service worker activation error:", error);
             }
@@ -277,6 +304,12 @@ self.addEventListener("activate", function (event) {
 
 // Add error handling for service worker installation
 self.addEventListener("install", function (event) {
-    // Skip waiting to activate immediately
-    self.skipWaiting();
+    event.waitUntil(
+        (async () => {
+            // Skip waiting to activate immediately
+            self.skipWaiting();
+            // Pre-load Scramjet config during installation
+            await ensureSjConfigLoaded();
+        })()
+    );
 });
